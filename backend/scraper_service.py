@@ -24,10 +24,10 @@ import json
 from models import Product
 import logging
 
-# Import enhanced scraper
+# Import enhanced scraper - temporarily disabled for testing
 try:
     from enhanced_scraper import EnhancedMarketplaceScraper
-    ENHANCED_SCRAPER_AVAILABLE = True
+    ENHANCED_SCRAPER_AVAILABLE = False  # Temporarily disabled to use improved legacy scraper
 except ImportError:
     ENHANCED_SCRAPER_AVAILABLE = False
     logging.warning("Enhanced scraper not available, using fallback")
@@ -76,17 +76,23 @@ class MarketplaceScraper:
         Uses multiple strategies for better success rate
         """
         try:
+            # Validate URL first
+            if not self._is_valid_product_url(url):
+                logger.warning(f"Invalid or non-product URL detected: {url}")
+                return self._create_fallback_product(url)
+            
             # Try enhanced scraper first if available
             if ENHANCED_SCRAPER_AVAILABLE:
                 try:
                     async with EnhancedMarketplaceScraper() as enhanced_scraper:
                         result = await enhanced_scraper.scrape_product(url)
-                        if result and result.get('scraped_successfully', False):
+                        
+                        # Better validation of scraping success
+                        if self._validate_scraped_result(result, url):
                             logger.info(f"✅ Enhanced scraper succeeded for {url}")
                             return result
-                        elif result:
-                            logger.info(f"⚠️ Enhanced scraper returned fallback data for {url}")
-                            return result
+                        else:
+                            logger.warning(f"⚠️ Enhanced scraper returned invalid data for {url}")
                 except Exception as e:
                     logger.warning(f"Enhanced scraper failed: {e}, falling back to legacy scraper")
             
@@ -94,14 +100,21 @@ class MarketplaceScraper:
             domain = urlparse(url).netloc.lower()
             
             if 'olx' in domain:
-                return await self._scrape_olx(url)
+                result = await self._scrape_olx(url)
             elif 'facebook' in domain:
-                return await self._scrape_facebook(url)
+                result = await self._scrape_facebook(url)
             elif 'quikr' in domain:
-                return await self._scrape_quikr(url)
+                result = await self._scrape_quikr(url)
             else:
                 # Generic scraper for unknown platforms
-                return await self._scrape_generic(url)
+                result = await self._scrape_generic(url)
+            
+            # Validate the result
+            if self._validate_scraped_result(result, url):
+                return result
+            else:
+                logger.warning(f"Legacy scraper returned invalid data for {url}")
+                return self._create_fallback_product(url)
                 
         except Exception as e:
             error_msg = str(e) or "Unknown error occurred during scraping"
@@ -109,20 +122,22 @@ class MarketplaceScraper:
             logger.exception("Full exception details:")
             
             # Return fallback product instead of None
-            domain = urlparse(url).netloc.lower()
-            if 'olx' in domain:
-                return self._create_fallback_product(url)
-            else:
-                return self._create_fallback_product(url)
+            return self._create_fallback_product(url)
     
     async def _scrape_olx(self, url: str) -> Optional[Dict[str, Any]]:
         """Scrape OLX product listing with robust fallback handling"""
         try:
-            # Add retry logic with timeout
-            for attempt in range(2):  # Max 2 attempts
+            # Add retry logic with much shorter timeout for better reliability
+            for attempt in range(3):  # Max 3 attempts
                 try:
                     logger.info(f"Scraping OLX attempt {attempt + 1}: {url}")
-                    async with self.session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as response:
+                    timeout = aiohttp.ClientTimeout(total=8, connect=3)  # Much shorter timeout
+                    
+                    # Add random delay between attempts
+                    if attempt > 0:
+                        await asyncio.sleep(random.uniform(1, 2))
+                    
+                    async with self.session.get(url, timeout=timeout) as response:
                         if response.status != 200:
                             logger.warning(f"OLX returned status {response.status} for {url} (attempt {attempt + 1})")
                             if attempt == 1:  # Last attempt
@@ -150,8 +165,12 @@ class MarketplaceScraper:
                         posted_date = self._extract_olx_date(soup)
                         
                         # If we couldn't extract basic info, try again or use fallback
+                        # Debug logging
+                        logger.info(f"Extracted title: '{title}', price: ₹{price}")
+                        
                         if not title or price == 0:
                             logger.warning(f"Could not extract basic info from OLX {url} (attempt {attempt + 1})")
+                            logger.info(f"Page title from HTML: {soup.find('title').get_text() if soup.find('title') else 'No title'}")
                             if attempt == 1:  # Last attempt
                                 return self._create_fallback_product(url, title, price)
                             continue
@@ -178,12 +197,14 @@ class MarketplaceScraper:
                         
                 except asyncio.TimeoutError:
                     logger.warning(f"Timeout scraping OLX {url} (attempt {attempt + 1})")
-                    if attempt == 1:
+                    if attempt == 2:  # Last attempt
+                        logger.info("Max attempts reached, creating intelligent fallback")
                         return self._create_fallback_product(url)
                 except Exception as e:
                     logger.warning(f"Error in scraping attempt {attempt + 1}: {str(e)}")
-                    if attempt == 1:
-                        raise e
+                    if attempt == 2:  # Last attempt
+                        logger.info("Max attempts reached due to error, creating intelligent fallback")
+                        return self._create_fallback_product(url)
                 
         except Exception as e:
             error_msg = str(e) or "Unknown scraping error"
@@ -202,9 +223,13 @@ class MarketplaceScraper:
         domain = urlparse(url).netloc.lower()
         platform_name = 'OLX' if 'olx' in domain else 'Facebook Marketplace' if 'facebook' in domain else 'Marketplace'
         
+        # Create more realistic description based on detected product type
+        product_type = self._categorize_product(extracted_title)
+        description = f"This {product_type.lower()} is available on {platform_name}. The AI negotiation agent will work with the seller to get you the best deal based on your target price and requirements."
+        
         return {
             'title': extracted_title,
-            'description': f"Product available on {platform_name}. This is an AI-assisted negotiation based on the product URL. Full details available on the original listing.",
+            'description': description,
             'price': estimated_price,
             'original_price': estimated_price,
             'seller_name': f'{platform_name} Seller',
@@ -212,16 +237,67 @@ class MarketplaceScraper:
             'location': 'India',
             'url': url,
             'platform': platform_name,
-            'category': self._categorize_product(extracted_title),
+            'category': product_type,
             'condition': 'Used',
             'images': [],
-            'features': ['Marketplace listing', 'AI-assisted negotiation'],
+            'features': ['AI-powered negotiation', 'Market price analysis', 'Smart offers'],
             'posted_date': datetime.now().isoformat(),
             'is_available': True,
             'scraped_successfully': False,
             'fallback_used': True,
-            'note': 'Product information estimated from URL. AI will negotiate based on your preferences.'
+            'note': f'AI will negotiate for this {extracted_title} based on your preferences. Product details will be confirmed during negotiation.'
         }
+
+    def _is_valid_product_url(self, url: str) -> bool:
+        """Validate if URL is a valid product listing URL"""
+        domain = urlparse(url).netloc.lower()
+        
+        if 'olx' in domain:
+            # OLX product URLs should contain /item/ and iid-
+            return '/item/' in url and 'iid-' in url
+        elif 'facebook' in domain:
+            # Facebook marketplace URLs
+            return '/marketplace/' in url and '/item/' in url
+        elif 'quikr' in domain:
+            # Quikr product URLs
+            return '/p/' in url or '/item/' in url
+        
+        return True  # Allow other domains
+    
+    def _validate_scraped_result(self, result: Dict[str, Any], original_url: str) -> bool:
+        """Validate if scraped result contains actual product data"""
+        if not result:
+            return False
+        
+        title = result.get('title', '')
+        price = result.get('price', 0)
+        
+        # Check if we got redirected to a category page
+        suspicious_phrases = [
+            'buy & sell',
+            'second hand',
+            'used cars in',
+            'mobiles in',
+            'for sale',
+            'listings in',
+            'browse all'
+        ]
+        
+        title_lower = title.lower()
+        for phrase in suspicious_phrases:
+            if phrase in title_lower and len(title_lower) > 50:
+                logger.warning(f"Detected category/listing page: {title}")
+                return False
+        
+        # Basic validation
+        if not title or len(title) < 5:
+            return False
+        
+        if price <= 0:
+            logger.warning(f"Invalid price detected: {price}")
+            return False
+        
+        return True
 
     def _estimate_price_from_context(self, url: str, title: str) -> int:
         """Estimate price based on URL patterns or title keywords"""
@@ -250,42 +326,117 @@ class MarketplaceScraper:
         return 50000  # Default fallback
 
     def _extract_title_from_url(self, url: str) -> str:
-        """Extract a basic title from URL when scraping fails"""
-        path = urlparse(url).path
-        # Remove common URL patterns and clean up
-        title_parts = re.sub(r'[/_\-]', ' ', path).strip()
-        title_parts = re.sub(r'\d+', '', title_parts)  # Remove numbers
-        title_parts = ' '.join(word.capitalize() for word in title_parts.split() if len(word) > 2)
-        return title_parts[:50] if title_parts else "Marketplace Product"
+        """Extract a meaningful title from URL when scraping fails"""
+        try:
+            # Parse the URL to get meaningful parts
+            parsed = urlparse(url)
+            path = parsed.path
+            
+            # For OLX URLs, extract product info from path
+            if 'olx.in' in parsed.netloc:
+                # Extract category and location from OLX URL structure
+                # Example: /en-in/item/mobile-phones-c1453-used-iphone-in-arumbakkam-chennai-iid-1821022551
+                parts = path.split('/')
+                
+                # Look for meaningful parts
+                product_info = []
+                for part in parts:
+                    if 'iphone' in part.lower():
+                        product_info.append('iPhone')
+                    elif 'samsung' in part.lower():
+                        product_info.append('Samsung Phone')
+                    elif 'mobile-phone' in part.lower():
+                        product_info.append('Mobile Phone')
+                    elif 'laptop' in part.lower():
+                        product_info.append('Laptop')
+                    elif 'bike' in part.lower():
+                        product_info.append('Bike')
+                    elif 'car' in part.lower():
+                        product_info.append('Car')
+                    
+                    # Extract location
+                    if any(city in part.lower() for city in ['chennai', 'mumbai', 'delhi', 'bangalore', 'hyderabad', 'pune', 'kolkata']):
+                        location_part = part.replace('-', ' ').title()
+                        if len(location_part) > 3:
+                            product_info.append(f"in {location_part}")
+                
+                if product_info:
+                    return ' '.join(product_info)
+            
+            # Fallback to generic extraction
+            title_parts = re.sub(r'[/_\-]', ' ', path).strip()
+            title_parts = re.sub(r'\d+', '', title_parts)  # Remove numbers
+            words = [word.capitalize() for word in title_parts.split() if len(word) > 2]
+            
+            # Filter out common URL words
+            filtered_words = [word for word in words if word.lower() not in ['item', 'iid', 'www', 'com', 'in', 'en']]
+            
+            return ' '.join(filtered_words[:6]) if filtered_words else "Marketplace Product"
+            
+        except Exception as e:
+            logger.warning(f"Error extracting title from URL: {e}")
+            return "Marketplace Product"
     
     def _extract_olx_title(self, soup: BeautifulSoup) -> str:
         """Extract product title from OLX with multiple fallback strategies"""
         # Updated selectors for current OLX structure
         selectors = [
             'h1[data-aut-id="itemTitle"]',
+            '[data-testid="ad-title"]',
             'h1.pds-ad-title',
             'h1._1k7g5',
-            '.ad-title',
-            'h1.x-15bjb6d',
-            '[data-testid="ad-title"]',
-            'title',  # Fallback to page title
-            'h1',     # Any h1 tag
+            'h1.kY95w',
+            '.ad-title h1',
+            '.it-ttl',
+            'h1',  # Any h1 tag
         ]
         
         for selector in selectors:
-            element = soup.select_one(selector)
-            if element:
+            elements = soup.select(selector)
+            for element in elements:
                 title = element.get_text(strip=True)
-                # Clean up title
-                if title and len(title) > 5 and 'OLX' not in title:
+                # Validate title - should not be category page indicators
+                if (title and len(title) > 5 and len(title) < 200 and 
+                    not self._is_category_title(title)):
+                    logger.info(f"Found valid title with selector '{selector}': {title}")
                     return title[:100]  # Limit length
         
-        # Final fallback - try meta title
+        # Try meta title as fallback
         meta_title = soup.find('meta', property='og:title')
         if meta_title and meta_title.get('content'):
-            return meta_title.get('content')[:100]
+            title = meta_title.get('content')
+            if not self._is_category_title(title):
+                return title[:100]
+        
+        # Try page title as last resort
+        title_tag = soup.find('title')
+        if title_tag:
+            title = title_tag.get_text(strip=True)
+            # Extract product name from page title
+            title = re.sub(r'\s*\|\s*OLX.*$', '', title)  # Remove " | OLX..." suffix
+            if not self._is_category_title(title) and len(title) > 5:
+                return title[:100]
         
         return None
+    
+    def _is_category_title(self, title: str) -> bool:
+        """Check if title indicates a category/listing page rather than product page"""
+        title_lower = title.lower()
+        category_indicators = [
+            'buy & sell',
+            'second hand',
+            'used cars in',
+            'mobiles in',
+            'bikes in',
+            'for sale',
+            'listings in',
+            'browse all',
+            'find ads',
+            'classified',
+            'olx.in'
+        ]
+        
+        return any(indicator in title_lower for indicator in category_indicators)
     
     def _extract_olx_price(self, soup: BeautifulSoup) -> int:
         """Extract price from OLX listing with improved patterns"""
@@ -296,7 +447,8 @@ class MarketplaceScraper:
             '.price-text',
             '.ad-price',
             '._6eme8',
-            '.x-1f6kntn'
+            '.x-1f6kntn',
+            '.kxOcF'  # Updated selector
         ]
         
         # Try specific selectors first
@@ -306,13 +458,34 @@ class MarketplaceScraper:
                 price_text = element.get_text(strip=True)
                 price = self._parse_price(price_text)
                 if price > 0:
+                    logger.info(f"Found price with selector '{selector}': ₹{price}")
                     return price
         
-        # Fallback: search all text for price patterns
-        all_text = soup.get_text()
-        price = self._parse_price(all_text)
+        # Search for price in structured data (JSON-LD)
+        json_scripts = soup.find_all('script', type='application/ld+json')
+        for script in json_scripts:
+            try:
+                data = json.loads(script.string)
+                if isinstance(data, dict) and 'offers' in data:
+                    offers = data['offers']
+                    if isinstance(offers, dict) and 'price' in offers:
+                        price = int(float(offers['price']))
+                        if price > 0:
+                            logger.info(f"Found price in JSON-LD: ₹{price}")
+                            return price
+            except (json.JSONDecodeError, ValueError, KeyError):
+                continue
         
-        return price if price > 0 else 0
+        # Last resort: search all text but be more selective
+        price_containers = soup.find_all(['div', 'span'], class_=re.compile(r'price|cost|amount'))
+        for container in price_containers:
+            price_text = container.get_text(strip=True)
+            price = self._parse_price(price_text)
+            if price > 0:
+                logger.info(f"Found price in price container: ₹{price}")
+                return price
+        
+        return 0
 
     def _parse_price(self, text: str) -> int:
         """Parse price from text with various formats"""
@@ -674,9 +847,31 @@ class MarketIntelligence:
         Perform comprehensive product analysis including market intelligence,
         negotiation points, and strategic recommendations
         """
-        # Validate product_data input first, outside try-catch
-        if not product_data or not isinstance(product_data, dict):
-            logger.warning("Invalid product_data provided for comprehensive analysis")
+        logger.debug(f"Starting comprehensive analysis with product_data type: {type(product_data)}")
+        
+        # Robust input validation
+        if product_data is None:
+            logger.warning("product_data is None, creating fallback")
+            product_data = {
+                'title': 'Unknown Product',
+                'price': user_budget if user_budget > 0 else 10000,
+                'category': 'Other',
+                'condition': 'Good',
+                'location': 'Unknown',
+                'description': 'Product description not available'
+            }
+        elif not isinstance(product_data, dict):
+            logger.warning(f"product_data is not a dict (type: {type(product_data)}), creating fallback")
+            product_data = {
+                'title': 'Unknown Product',
+                'price': user_budget if user_budget > 0 else 10000,
+                'category': 'Other',
+                'condition': 'Good',
+                'location': 'Unknown',
+                'description': 'Product description not available'
+            }
+        elif not product_data:  # Empty dict
+            logger.warning("product_data is empty dict, creating fallback")
             product_data = {
                 'title': 'Unknown Product',
                 'price': user_budget if user_budget > 0 else 10000,
@@ -711,7 +906,7 @@ class MarketIntelligence:
             
             # 5. Strategic Recommendations
             strategy = self._generate_negotiation_strategy(
-                price, user_target, user_budget, market_analysis, condition_analysis
+                price, user_target, user_budget, market_analysis, condition_analysis, product_data
             )
             
             # 6. Risk Assessment
@@ -730,15 +925,32 @@ class MarketIntelligence:
             
         except Exception as e:
             logger.error(f"Error in comprehensive analysis: {e}")
-            # Ensure product_data is defined for fallback
-            fallback_product_data = product_data if 'product_data' in locals() else {
-                'title': 'Unknown Product',
-                'price': user_budget if user_budget > 0 else 10000,
-                'category': 'Other',
-                'condition': 'Good',
-                'location': 'Unknown',
-                'description': 'Product description not available'
-            }
+            logger.error(f"Error type: {type(e).__name__}")
+            logger.error(f"Error details: {str(e)}")
+            
+            # Create fallback using product_data parameter (which is guaranteed to exist)
+            try:
+                # Safely access product_data parameter
+                fallback_product_data = product_data if (product_data and isinstance(product_data, dict)) else {
+                    'title': 'Unknown Product',
+                    'price': user_budget if user_budget > 0 else 10000,
+                    'category': 'Other',
+                    'condition': 'Good',
+                    'location': 'Unknown',
+                    'description': 'Product description not available'
+                }
+            except NameError as ne:
+                logger.error(f"NameError accessing product_data in fallback: {ne}")
+                # This should never happen since product_data is a method parameter
+                fallback_product_data = {
+                    'title': 'Emergency Fallback Product',
+                    'price': user_budget if user_budget > 0 else 10000,
+                    'category': 'Other',
+                    'condition': 'Good',
+                    'location': 'Unknown',
+                    'description': 'Emergency fallback due to scope issue'
+                }
+            
             return self._get_fallback_analysis(fallback_product_data, user_target, user_budget)
     
     async def analyze_market_price(self, product_title: str, category: str, current_price: int) -> Dict[str, Any]:
@@ -956,7 +1168,8 @@ class MarketIntelligence:
         return talking_points
     
     def _generate_negotiation_strategy(self, current_price: int, user_target: int, 
-                                     user_budget: int, market_analysis: Dict, condition_analysis: Dict) -> Dict[str, Any]:
+                                     user_budget: int, market_analysis: Dict, condition_analysis: Dict, 
+                                     product_data: Dict = None) -> Dict[str, Any]:
         """Generate comprehensive negotiation strategy"""
         
         estimated_value = market_analysis.get('estimated_market_value', current_price)
@@ -1016,7 +1229,7 @@ class MarketIntelligence:
         if condition_analysis['negative_indicators']:
             strategy['key_tactics'].append('condition_based_discount')
         
-        if 'urgent' in str(product_data.get('description', '')).lower():
+        if product_data and 'urgent' in str(product_data.get('description', '')).lower():
             strategy['key_tactics'].append('time_sensitive_offer')
         
         strategy['key_tactics'].extend(['market_comparison', 'cash_buyer_advantage', 'immediate_closure'])

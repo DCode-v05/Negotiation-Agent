@@ -190,10 +190,10 @@
                 setUser(userData);
                 setShowAuth(false);
                 // Redirect based on user type
-                if (userData.user_type === 'seller') {
-                    window.location.href = '/seller-portal.html';
+                if (userData && userData.role === 'seller') {
+                    window.location.href = '/react/seller-portal.html';
                 } else {
-                    window.location.href = '/react-app.html';
+                    window.location.href = '/react/react-app.html';
                 }
             };
 
@@ -228,8 +228,9 @@
                                 </motion.div>
 
                                 <h1 className="text-6xl md:text-8xl font-black mb-6 leading-tight">
-                                    <span className="gradient-text">Negotiate Bot</span>
+                                    <span className="gradient-text">Negotiate</span>
                                     <br />
+                                    <span className="text-white">Like a Professional</span>
                                 </h1>
 
                                 <p className="text-xl md:text-2xl text-secondary-300 mb-12 max-w-3xl mx-auto leading-relaxed">
@@ -411,6 +412,7 @@
             const [formData, setFormData] = useState({
                 name: '',
                 email: '',
+                phone: '',
                 password: '',
                 confirmPassword: '',
                 userType: userType
@@ -428,9 +430,25 @@
                 setIsLoading(true);
 
                 try {
-                    if (!isLogin && formData.password !== formData.confirmPassword) {
-                        alert('Passwords do not match');
+                    // Client-side validation
+                    if (!formData.email || !formData.password) {
+                        alert('Please fill in all required fields');
                         return;
+                    }
+
+                    if (!isLogin) {
+                        if (!formData.name || !formData.phone) {
+                            alert('Please fill in all required fields (Name and Phone are required for registration)');
+                            return;
+                        }
+                        if (formData.password !== formData.confirmPassword) {
+                            alert('Passwords do not match');
+                            return;
+                        }
+                        if (formData.phone.length < 10) {
+                            alert('Please enter a valid phone number (at least 10 digits)');
+                            return;
+                        }
                     }
 
                     const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
@@ -446,7 +464,7 @@
                             username: formData.email, // Using email as username
                             email: formData.email,
                             full_name: formData.name, 
-                            phone: '1234567890', // Default phone for demo
+                            phone: formData.phone || '1234567890', // Use provided phone or default
                             password: formData.password,
                             role: formData.userType
                         };
@@ -459,10 +477,14 @@
 
                     const data = await response.json();
 
-                    if (data.success) {
+                    if (response.ok && data.success && data.user) {
                         onAuthSuccess(data.user, data.token);
                     } else {
-                        alert(data.message || 'Authentication failed');
+                        // Show detailed error message
+                        const errorMessage = data.message || 'Authentication failed';
+                        const detailsMessage = data.errors ? `\nDetails: ${data.errors.join(', ')}` : '';
+                        alert(errorMessage + detailsMessage);
+                        console.error('Authentication response:', data);
                     }
                 } catch (error) {
                     console.error('Auth error:', error);
@@ -490,7 +512,7 @@
             const config = userTypeConfig[userType];
 
             return (
-                <div className="min-h-screen bg-gradient-to-br from-dark-950 via-dark-900 to-primary-950 flex items-center justify-center p-4">
+                <div className="min-h-screen bg-gradient-to-br from-secondary-950 via-secondary-900 to-primary-950 flex items-center justify-center p-4">
                     <div className="w-full max-w-md">
                         <motion.div 
                             initial={{ opacity: 0, y: -20 }}
@@ -540,7 +562,7 @@
                                             onChange={handleInputChange}
                                             placeholder="Full Name"
                                             required={!isLogin}
-                                            className="w-full px-4 py-4 bg-dark-800/50 border border-primary-600/30 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-white placeholder-gray-400 backdrop-blur-sm transition-all duration-300"
+                                            className="w-full px-4 py-4 bg-secondary-800/70 border border-primary-600/30 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-white placeholder-gray-400 backdrop-blur-sm transition-all duration-300"
                                         />
                                     )}
 
@@ -551,8 +573,20 @@
                                         onChange={handleInputChange}
                                         placeholder="Email Address"
                                         required
-                                        className="w-full px-4 py-4 bg-dark-800/50 border border-primary-600/30 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-white placeholder-gray-400 backdrop-blur-sm transition-all duration-300"
+                                        className="w-full px-4 py-4 bg-secondary-800/70 border border-primary-600/30 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-white placeholder-gray-400 backdrop-blur-sm transition-all duration-300"
                                     />
+
+                                    {!isLogin && (
+                                        <input
+                                            type="tel"
+                                            name="phone"
+                                            value={formData.phone}
+                                            onChange={handleInputChange}
+                                            placeholder="Phone Number"
+                                            required={!isLogin}
+                                            className="w-full px-4 py-4 bg-secondary-800/70 border border-primary-600/30 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-white placeholder-gray-400 backdrop-blur-sm transition-all duration-300"
+                                        />
+                                    )}
 
                                     <input
                                         type={showPassword ? 'text' : 'password'}
@@ -561,7 +595,7 @@
                                         onChange={handleInputChange}
                                         placeholder="Password"
                                         required
-                                        className="w-full px-4 py-4 bg-dark-800/50 border border-primary-600/30 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-white placeholder-gray-400 backdrop-blur-sm transition-all duration-300"
+                                        className="w-full px-4 py-4 bg-secondary-800/70 border border-primary-600/30 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-white placeholder-gray-400 backdrop-blur-sm transition-all duration-300"
                                     />
 
                                     {!isLogin && (
@@ -572,7 +606,7 @@
                                             onChange={handleInputChange}
                                             placeholder="Confirm Password"
                                             required={!isLogin}
-                                            className="w-full px-4 py-4 bg-dark-800/50 border border-primary-600/30 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-white placeholder-gray-400 backdrop-blur-sm transition-all duration-300"
+                                            className="w-full px-4 py-4 bg-secondary-800/70 border border-primary-600/30 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-white placeholder-gray-400 backdrop-blur-sm transition-all duration-300"
                                         />
                                     )}
 

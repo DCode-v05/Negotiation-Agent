@@ -69,6 +69,111 @@
     "role": "buyer",
     "created_at": "2025-09-25T15:49:06.531653",
     "last_activity": "2025-09-25T15:49:06.531664",
+    "is_active": false,
+    "logged_out_at": "2025-09-25T16:02:38.371039"
+  },
+  "ptPqxHk_IXXcNyy-Vtp_nAKHEVqUrBSA_jbUsNMzHfA": {
+    "user_id": "e19Wmf5P2rEk1LQGTivhpw",
+    "username": "denistanb05@gmail.com",
+    "role": "buyer",
+    "created_at": "2025-09-25T16:01:57.200801",
+    "last_activity": "2025-09-25T16:01:57.200816",
+    "is_active": true
+  },
+  "rBL6tUQoJ3eAWWlxLdhoCQRQfYAJrGatx2qCi45Yrvs": {
+    "user_id": "2T0J4z9QVgzI2ExUCIor9A",
+    "username": "denistan.23cs@kct.ac.in",
+    "role": "seller",
+    "created_at": "2025-09-25T16:03:00.633061",
+    "last_activity": "2025-09-25T16:03:00.633072",
+    "is_active": true
+  },
+  "QvFRlH9AVgk0YRBpHpqmp0QcnOYN1HklzPnkY4Ukvd0": {
+    "user_id": "e19Wmf5P2rEk1LQGTivhpw",
+    "username": "denistanb05@gmail.com",
+    "role": "buyer",
+    "created_at": "2025-09-25T16:04:16.166536",
+    "last_activity": "2025-09-25T16:04:16.166547",
+    "is_active": true
+  },
+  "iPZcjyIj85uKQZiESUrMblDQjQwrnRv3EXmQCAhkiow": {
+    "user_id": "e19Wmf5P2rEk1LQGTivhpw",
+    "username": "denistanb05@gmail.com",
+    "role": "buyer",
+    "created_at": "2025-09-25T16:05:42.617603",
+    "last_activity": "2025-09-25T16:05:42.617612",
+    "is_active": true
+  },
+  "J1digxpofvO-MAHoEHKmXSGkVnY2ZrJhZBeyacdr8fM": {
+    "user_id": "e19Wmf5P2rEk1LQGTivhpw",
+    "username": "denistanb05@gmail.com",
+    "role": "buyer",
+    "created_at": "2025-09-25T16:24:49.725342",
+    "last_activity": "2025-09-25T16:24:49.725360",
+    "is_active": true
+  },
+  "VJBVrussH65xyuA-HAPFOj7YmDlDqx-95rD8GeTJCLk": {
+    "user_id": "e19Wmf5P2rEk1LQGTivhpw",
+    "username": "denistanb05@gmail.com",
+    "role": "buyer",
+    "created_at": "2025-09-25T21:21:23.095935",
+    "last_activity": "2025-09-25T21:21:23.095949",
+    "is_active": true
+  },
+  "DX27U_hUCRMZfeLatUJVsRfqHHnMBDkUtoMWs_bYOtk": {
+    "user_id": "e19Wmf5P2rEk1LQGTivhpw",
+    "username": "denistanb05@gmail.com",
+    "role": "buyer",
+    "created_at": "2025-09-25T21:22:46.178187",
+    "last_activity": "2025-09-25T21:22:46.178200",
+    "is_active": true
+  },
+  "_O5i3rELZdViC7L7FnKbFFAiwaqtaPi_pOHhWLNWG8E": {
+    "user_id": "e19Wmf5P2rEk1LQGTivhpw",
+    "username": "denistanb05@gmail.com",
+    "role": "buyer",
+    "created_at": "2025-09-25T21:23:14.103358",
+    "last_activity": "2025-09-25T21:23:14.103374",
+    "is_active": true
+  },
+  "eZTM2lcCNLdHYuCQiTADjUqNXgRE6xMCF5nlNYvt5Ig": {
+    "user_id": "e19Wmf5P2rEk1LQGTivhpw",
+    "username": "denistanb05@gmail.com",
+    "role": "buyer",
+    "created_at": "2025-09-25T21:35:45.877301",
+    "last_activity": "2025-09-25T21:35:45.877317",
+    "is_active": true
+  },
+  "NeSWZxiHwY8QjyQ_-Uf_5uCd9tkfPMXeSU7Ye6TmOkk": {
+    "user_id": "e19Wmf5P2rEk1LQGTivhpw",
+    "username": "denistanb05@gmail.com",
+    "role": "buyer",
+    "created_at": "2025-09-25T21:36:11.387135",
+    "last_activity": "2025-09-25T21:36:11.387149",
+    "is_active": true
+  },
+  "aVHiKj0Lz0wjVvNtqdB2fG9RDyHSu6OPkwab81cBzf0": {
+    "user_id": "e19Wmf5P2rEk1LQGTivhpw",
+    "username": "denistanb05@gmail.com",
+    "role": "buyer",
+    "created_at": "2025-09-25T21:59:00.284685",
+    "last_activity": "2025-09-25T21:59:00.284697",
+    "is_active": true
+  },
+  "iul66Mjk0w89pjVTNRjpdR0Ec4DOzkTVqRpsP57aXy8": {
+    "user_id": "2T0J4z9QVgzI2ExUCIor9A",
+    "username": "denistan.23cs@kct.ac.in",
+    "role": "seller",
+    "created_at": "2025-09-25T22:25:27.813646",
+    "last_activity": "2025-09-25T22:25:27.813656",
+    "is_active": true
+  },
+  "wVTh-GKK-1eu73oU6GEec3Vw-mk2SKQz2KzbQ8XcG9o": {
+    "user_id": "e19Wmf5P2rEk1LQGTivhpw",
+    "username": "denistanb05@gmail.com",
+    "role": "buyer",
+    "created_at": "2025-09-25T22:38:10.076155",
+    "last_activity": "2025-09-25T22:38:10.076165",
     "is_active": true
   }
 }

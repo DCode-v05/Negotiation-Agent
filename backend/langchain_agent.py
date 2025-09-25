@@ -181,7 +181,7 @@ class LangChainNegotiationAgent:
         
         # Initialize LLM
         self.llm = ChatGoogleGenerativeAI(
-            model="gemini-pro",
+            model="gemini-1.5-flash",
             google_api_key=self.google_api_key,
             temperature=0.7,
             max_tokens=1000
@@ -204,45 +204,81 @@ class LangChainNegotiationAgent:
         self.negotiation_prompt = PromptTemplate(
             input_variables=[
                 "product_name", "product_price", "target_price", "max_budget",
-                "seller_message", "negotiation_phase", "chat_history", "market_data"
+                "seller_message", "negotiation_phase", "conversation_flow", "price_mentions", 
+                "seller_sentiment", "negotiation_stage", "seller_tactics", "market_data"
             ],
             template="""
-You are an expert negotiation agent helping a buyer negotiate the best deal for a product.
+You are an expert negotiation strategist helping a buyer negotiate the best deal. You must be strategic, methodical, and use market analysis to your advantage.
 
 PRODUCT DETAILS:
 - Product: {product_name}
-- Listed Price: ${product_price}
-- Target Price: ${target_price}
-- Maximum Budget: ${max_budget}
+- Listed Price: ₹{product_price}
+- Target Price: ₹{target_price}
+- Maximum Budget: ₹{max_budget}
 
-NEGOTIATION CONTEXT:
-- Phase: {negotiation_phase}
+CONVERSATION CONTEXT:
+- Negotiation Phase: {negotiation_phase}
+- Negotiation Stage: {negotiation_stage}
+- Seller Sentiment: {seller_sentiment}
+- Seller Tactics Detected: {seller_tactics}
+
+- Full Conversation Flow:
+{conversation_flow}
+
+- Price-Related Discussions:
+{price_mentions}
+
 - Market Data: {market_data}
-- Chat History: {chat_history}
 
-LATEST SELLER MESSAGE:
-{seller_message}
+SELLER'S LATEST MESSAGE:
+"{seller_message}"
 
-INSTRUCTIONS:
-1. Analyze the seller's message for key negotiation signals
-2. Use available tools to gather market insights and calculate optimal offers
-3. Determine the best negotiation strategy and tactics
-4. Craft a professional, persuasive response that moves the negotiation forward
-5. Include a specific price offer if appropriate
+CONTEXTUAL RESPONSE STRATEGY - Adapt based on seller behavior:
 
-RESPONSE FORMAT:
-Provide a JSON response with the following structure:
+**SELLER SENTIMENT ANALYSIS**: {seller_sentiment}
+- If RESISTANT: Use empathy, market data, alternatives, gentle pressure
+- If AGREEABLE: Build on positivity, move closer to target price
+- If OPEN: Test flexibility, provide compelling reasons, create urgency
+
+**NEGOTIATION STAGE**: {negotiation_stage}  
+- If OPENING: Establish rapport, anchor with target price, show serious interest
+- If MIDDLE: Apply strategic pressure, use market comparisons, show flexibility
+- If ADVANCED/CLOSING: Make final push, summarize value, create win-win scenario
+
+**SELLER TACTICS DETECTED**: {seller_tactics}
+- If "rejection": Counter with alternatives and market data
+- If "acceptance": Confirm and close the deal
+- If "counter_offer": Evaluate and respond strategically
+- If "ultimatum": Test if it's real or negotiating tactic
+
+**DYNAMIC RESPONSE RULES**:
+1. NEVER use the same phrasing twice - always vary your language
+2. Directly address what the seller just said - show you're listening
+3. Adapt your tone to match the seller's energy level
+4. Use different persuasion angles: logic, emotion, urgency, social proof
+   - Vary your language and approach based on conversation history
+
+4. **HUMAN-LIKE RESPONSE CRAFTING**:
+   - Sound conversational and natural, not robotic
+   - Reference specific points from the seller's message
+   - Show emotional intelligence and adaptability
+   - Use varied vocabulary and sentence structures
+   - Include personal touches (but stay professional)
+
+IMPORTANT: Your final answer must be ONLY the JSON response, nothing else. Do not include any explanatory text before or after the JSON.
+
+RESPONSE FORMAT (return exactly this JSON structure as your final answer):
 {{
-    "message": "Your response to the seller",
+    "message": "Your strategic response with specific reasoning and market-based arguments",
     "action_type": "offer|counter_offer|accept|reject|question|final_offer",
     "price_offer": price_amount_or_null,
     "confidence": confidence_score_0_to_1,
-    "reasoning": "Your strategic reasoning",
+    "reasoning": "Step-by-step strategic analysis of your approach",
     "tactics_used": ["list", "of", "tactics"],
     "next_steps": ["recommended", "next", "steps"]
 }}
 
-Generate a strategic negotiation response:
+Generate a strategic negotiation response (respond with JSON only):
 """
         )
         
@@ -264,7 +300,58 @@ Generate a strategic negotiation response:
     ) -> Dict[str, Any]:
         """Generate intelligent negotiation response using LangChain"""
         try:
-            # Prepare input for the agent
+            # Prepare input for the agent with dynamic conversation context
+            recent_messages = context.chat_history[-6:] if context.chat_history else []
+            conversation_flow = []
+            
+            for msg in recent_messages:
+                if hasattr(msg, 'sender') and hasattr(msg, 'content'):
+                    conversation_flow.append(f"{msg.sender}: {msg.content}")
+                elif isinstance(msg, dict):
+                    conversation_flow.append(f"{msg.get('sender', 'unknown')}: {msg.get('content', '')}")
+            
+            conversation_context = "\n".join(conversation_flow) if conversation_flow else "No previous conversation"
+            
+            # Analyze conversation context for better responses
+            price_mentions = []
+            seller_sentiment = "neutral"
+            negotiation_stage = "initial"
+            seller_tactics = []
+            
+            for i, msg in enumerate(conversation_flow):
+                # Extract price mentions
+                if any(price_word in msg.lower() for price_word in ['₹', 'rupees', 'price', 'cost', 'budget']):
+                    price_mentions.append(msg)
+                
+                # Analyze seller behavior if it's a seller message
+                if msg.startswith("Seller:"):
+                    content_lower = msg.lower()
+                    
+                    # Determine seller sentiment
+                    if any(word in content_lower for word in ["no", "can't", "impossible", "too low", "minimum", "sorry"]):
+                        seller_sentiment = "resistant"
+                        seller_tactics.append("rejection")
+                    elif any(word in content_lower for word in ["okay", "yes", "agreed", "fine", "deal", "accept"]):
+                        seller_sentiment = "agreeable"
+                        seller_tactics.append("acceptance")
+                    elif any(word in content_lower for word in ["maybe", "consider", "think", "possible", "let me"]):
+                        seller_sentiment = "open"
+                        seller_tactics.append("consideration")
+                    elif any(word in content_lower for word in ["final", "last", "best", "lowest"]):
+                        seller_tactics.append("ultimatum")
+                        negotiation_stage = "closing"
+                    elif any(word in content_lower for word in ["counter", "what about", "how about"]):
+                        seller_tactics.append("counter_offer")
+            
+            # Determine negotiation stage based on message count
+            seller_message_count = len([msg for msg in conversation_flow if msg.startswith("Seller:")])
+            if seller_message_count == 1:
+                negotiation_stage = "opening"
+            elif seller_message_count > 3:
+                negotiation_stage = "advanced"
+            else:
+                negotiation_stage = "middle"
+            
             agent_input = {
                 "product_name": context.product.get("name", "Unknown Product"),
                 "product_price": context.product.get("price", 0),
@@ -272,7 +359,11 @@ Generate a strategic negotiation response:
                 "max_budget": context.max_budget,
                 "seller_message": context.seller_messages[-1] if context.seller_messages else "",
                 "negotiation_phase": context.negotiation_phase,
-                "chat_history": str(context.chat_history[-5:]),  # Last 5 messages
+                "conversation_flow": conversation_context,
+                "price_mentions": "\n".join(price_mentions) if price_mentions else "No price discussions yet",
+                "seller_sentiment": seller_sentiment,
+                "negotiation_stage": negotiation_stage,
+                "seller_tactics": ", ".join(seller_tactics) if seller_tactics else "none detected",
                 "market_data": json.dumps(context.market_data)
             }
             
@@ -311,10 +402,21 @@ Generate a strategic negotiation response:
         try:
             # Use the agent with the formatted prompt
             response = self.agent.run(prompt)
+            logger.info(f"Agent raw response: {response[:200]}...")
             return response
         except Exception as e:
             logger.error(f"Agent execution error: {e}")
-            raise
+            # Return a valid JSON fallback
+            fallback_response = {
+                "message": "I need to review this further. Let me consider the best approach.",
+                "action_type": "question",
+                "price_offer": None,
+                "confidence": 0.5,
+                "reasoning": f"Agent error: {str(e)}",
+                "tactics_used": ["fallback"],
+                "next_steps": ["retry_with_fallback"]
+            }
+            return json.dumps(fallback_response)
     
     def _parse_agent_response(self, response: str) -> Dict[str, Any]:
         """Parse agent response into structured format"""
@@ -346,9 +448,9 @@ Generate a strategic negotiation response:
         """Get default value for missing fields"""
         defaults = {
             "message": "I need to review this further.",
-            "action_type": "question",
+            "action_type": "respond",
             "price_offer": None,
-            "confidence": 0.6,
+            "confidence": 0.75,
             "reasoning": "Default response due to parsing issue",
             "tactics_used": ["analytical"],
             "next_steps": ["continue_negotiation"]
@@ -359,9 +461,9 @@ Generate a strategic negotiation response:
         """Create fallback response from raw text"""
         return {
             "message": raw_response[:500] if len(raw_response) > 500 else raw_response,
-            "action_type": "question",
+            "action_type": "respond",
             "price_offer": None,
-            "confidence": 0.6,
+            "confidence": 0.75,
             "reasoning": "Parsed from unstructured response",
             "tactics_used": ["analytical"],
             "next_steps": ["await_seller_response"]

@@ -411,3 +411,45 @@ class AuthenticationService:
                 "account_status": "Active" if user_data.get('is_active') else "Inactive"
             }
         }
+    
+    async def validate_session(self, session_id: str) -> Dict[str, Any]:
+        """Validate session and return user info if valid"""
+        sessions = self._load_sessions()
+        
+        if session_id not in sessions:
+            return {"success": False, "message": "Invalid session"}
+        
+        session_data = sessions[session_id]
+        
+        # Check if session is active
+        if not session_data.get('is_active', False):
+            return {"success": False, "message": "Session is not active"}
+        
+        # Check if session has expired (optional - could add expiration logic here)
+        # For now, we'll just update last_activity
+        session_data['last_activity'] = datetime.now().isoformat()
+        self._save_sessions(sessions)
+        
+        # Get user data
+        users = self._load_users()
+        user_id = session_data.get('user_id')
+        
+        if user_id not in users:
+            return {"success": False, "message": "User not found"}
+        
+        user_data = users[user_id]
+        
+        # Remove sensitive data
+        safe_user_data = {k: v for k, v in user_data.items() if k != 'password_hash'}
+        
+        return {
+            "success": True,
+            "user": safe_user_data,
+            "session": {
+                "session_id": session_id,
+                "username": session_data.get('username'),
+                "role": session_data.get('role'),
+                "created_at": session_data.get('created_at'),
+                "last_activity": session_data.get('last_activity')
+            }
+        }

@@ -39,33 +39,50 @@ class EnhancedMarketplaceScraper:
         Enhanced scraping with multiple fallback strategies
         """
         domain = urlparse(url).netloc.lower()
+        logger.info(f"Starting enhanced scraping for {domain}")
         
-        # Strategy 1: CloudScraper (handles most anti-bot measures)
+        # Strategy 1: Enhanced HTTP first (faster)
         try:
-            return await self._scrape_with_cloudscraper(url)
-        except Exception as e:
-            logger.warning(f"CloudScraper failed for {domain}: {e}")
-        
-        # Strategy 2: Enhanced HTTP with rotating user agents
-        try:
-            return await self._scrape_with_enhanced_http(url)
+            logger.info(f"Trying enhanced HTTP for {domain}")
+            result = await self._scrape_with_enhanced_http(url)
+            if result.get('scraped_successfully'):
+                logger.info(f"Enhanced HTTP successful for {domain}")
+                return result
         except Exception as e:
             logger.warning(f"Enhanced HTTP failed for {domain}: {e}")
         
-        # Strategy 3: Playwright (JavaScript rendering)
+        # Strategy 2: CloudScraper (handles most anti-bot measures)
         try:
-            return await self._scrape_with_playwright(url)
+            logger.info(f"Trying CloudScraper for {domain}")
+            result = await self._scrape_with_cloudscraper(url)
+            if result.get('scraped_successfully'):
+                logger.info(f"CloudScraper successful for {domain}")
+                return result
         except Exception as e:
-            logger.warning(f"Playwright failed for {domain}: {e}")
+            logger.warning(f"CloudScraper failed for {domain}: {e}")
         
-        # Strategy 4: Mobile User Agent approach
+        # Strategy 3: Mobile User Agent approach
         try:
-            return await self._scrape_with_mobile_ua(url)
+            logger.info(f"Trying mobile UA for {domain}")
+            result = await self._scrape_with_mobile_ua(url)
+            if result.get('scraped_successfully'):
+                logger.info(f"Mobile UA successful for {domain}")
+                return result
         except Exception as e:
             logger.warning(f"Mobile UA approach failed for {domain}: {e}")
         
-        # Fallback: Create estimated product data
-        logger.error(f"All scraping strategies failed for {url}")
+        # Strategy 4: Playwright (JavaScript rendering)
+        try:
+            logger.info(f"Trying Playwright for {domain}")
+            result = await self._scrape_with_playwright(url)
+            if result.get('scraped_successfully'):
+                logger.info(f"Playwright successful for {domain}")
+                return result
+        except Exception as e:
+            logger.warning(f"Playwright failed for {domain}: {e}")
+        
+        # Fallback: Create intelligent product data based on URL analysis
+        logger.warning(f"All scraping strategies failed for {url}, using intelligent fallback")
         return self._create_intelligent_fallback(url)
 
     async def _scrape_with_cloudscraper(self, url: str) -> Dict[str, Any]:
@@ -221,20 +238,32 @@ class EnhancedMarketplaceScraper:
                 title = element.get_text(strip=True)
                 break
         
-        # Multiple selector strategies for price
+        # Enhanced selector strategies for price (OLX specific)
         price_selectors = [
             '[data-aut-id="itemPrice"]',
-            '.notranslate',
+            'span.notranslate',
             '.price-text',
             '.ad-price',
-            '[class*="price"]'
+            '[class*="price"]',
+            'span[class*="Price"]',
+            '.price',
+            'h3.notranslate'
         ]
         
         price_text = None
         for selector in price_selectors:
-            element = soup.select_one(selector)
-            if element and element.get_text(strip=True):
-                price_text = element.get_text(strip=True)
+            elements = soup.select(selector)
+            for element in elements:
+                text = element.get_text(strip=True)
+                # Check if this looks like a price (contains ₹ or numbers)
+                if text and ('₹' in text or re.search(r'\d{2,}', text)):
+                    # Skip if it looks like an ID or phone number (too long)
+                    numbers = re.findall(r'\d+', text)
+                    if numbers and any(len(num) >= 10 for num in numbers):
+                        continue  # Skip phone numbers/IDs
+                    price_text = text
+                    break
+            if price_text:
                 break
         
         # Extract numeric price
@@ -342,7 +371,7 @@ class EnhancedMarketplaceScraper:
         }
 
     def _extract_price(self, price_text: str) -> Optional[int]:
-        """Extract numeric price from text"""
+        """Extract numeric price from text with better validation"""
         if not price_text:
             return None
         
@@ -353,7 +382,14 @@ class EnhancedMarketplaceScraper:
         # Try to extract number
         numbers = re.findall(r'\d+(?:\.\d+)?', clean_text)
         if numbers:
-            return int(float(numbers[0]))
+            price_candidate = int(float(numbers[0]))
+            
+            # Validate price range - reject unrealistic prices
+            if 100 <= price_candidate <= 50000000:  # Valid price range for most products
+                # Additional check: reject if it looks like an ID (too many digits)
+                if len(str(price_candidate)) > 8:  # IDs usually have 9+ digits
+                    return None
+                return price_candidate
         
         return None
 
@@ -479,6 +515,27 @@ class EnhancedMarketplaceScraper:
             'features': ['Marketplace listing', 'AI-assisted negotiation'],
             'note': 'Product information estimated from URL. AI will negotiate based on your target price and budget.'
         }
+
+    def _extract_title_from_url(self, url: str) -> str:
+        """Extract product title from URL"""
+        try:
+            path = urlparse(url).path
+            # Extract meaningful part from URL path
+            parts = path.split('/')
+            for part in reversed(parts):
+                if part and len(part) > 5 and not part.isdigit():
+                    # Clean up the part
+                    title = part.replace('-', ' ').replace('_', ' ')
+                    title = re.sub(r'[^\w\s]', ' ', title)
+                    return ' '.join(word.capitalize() for word in title.split())
+            
+            # Fallback to domain-based title
+            domain = urlparse(url).netloc.replace('www.', '')
+            return f'Product from {domain.capitalize()}'
+        except:
+            return 'Marketplace Product'
+
+
 
 # Helper function to install missing packages
 async def install_missing_packages():

@@ -13,6 +13,7 @@ import logging
 from models import NegotiationSession, ChatMessage, Product, NegotiationParams
 from database import JSONDatabase
 from scraper_service import MarketplaceScraper, MarketIntelligence
+from enhanced_scraper import EnhancedMarketplaceScraper
 from negotiation_engine import AdvancedNegotiationEngine, NegotiationPhase
 
 logger = logging.getLogger(__name__)
@@ -63,17 +64,32 @@ class AdvancedSessionManager:
             # Step 1: Scrape product information
             logger.info(f"Scraping product from URL: {product_url}")
             
-            async with MarketplaceScraper() as scraper:
+            # Use enhanced scraper for better success rate
+            async with EnhancedMarketplaceScraper() as scraper:
                 product_data = await scraper.scrape_product(product_url)
             
-            if not product_data:
+            if not product_data or not isinstance(product_data, dict):
                 raise ValueError("Could not scrape product information from URL")
             
             # Step 2: Comprehensive market intelligence and product analysis
             logger.info("Performing comprehensive product analysis...")
-            market_analysis = await self.market_intelligence.comprehensive_product_analysis(
-                product_data, params.target_price, params.max_budget
-            )
+            try:
+                market_analysis = await self.market_intelligence.comprehensive_product_analysis(
+                    product_data, params.target_price, params.max_budget
+                )
+            except Exception as e:
+                logger.warning(f"Comprehensive analysis failed, using fallback: {e}")
+                # Create basic market analysis if comprehensive fails
+                market_analysis = {
+                    'market_analysis': {'estimated_value': product_data.get('price', params.max_budget)},
+                    'condition_analysis': {'score': 0.7},
+                    'price_justification': {'is_reasonable': True},
+                    'negotiation_points': {'key_points': ['Product condition', 'Market price']},
+                    'strategy': {'approach': 'conservative', 'success_probability': 0.6},
+                    'risk_assessment': {'level': 'medium'},
+                    'confidence_score': 0.6,
+                    'recommended_actions': ['Start with polite inquiry', 'Present reasonable offer']
+                }
             
             # Step 3: Create Product object
             product = Product(

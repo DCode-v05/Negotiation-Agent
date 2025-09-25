@@ -46,6 +46,47 @@ class NegotiationResponse(BaseModel):
     tactics_used: List[str] = Field(description="Negotiation tactics employed")
     next_steps: List[str] = Field(description="Recommended next steps")
 
+import json
+import logging
+from typing import Dict, List, Optional, Any, Tuple
+from datetime import datetime
+from dataclasses import dataclass
+
+from pydantic import BaseModel, Field
+
+# Local imports
+from models import NegotiationSession, ChatMessage
+from negotiation_engine import AdvancedNegotiationEngine
+from scraper_service import MarketplaceScraper
+# from mcp_integration import JSONContextManager, NegotiationContext  # Temporarily disabled
+from gemini_service import GeminiOnlyService
+from langchain_agent import LangChainNegotiationAgent, NegotiationContext as LangChainContext
+
+logger = logging.getLogger(__name__)
+
+# Simple local NegotiationContext class
+@dataclass
+class NegotiationContext:
+    """Simple context for negotiation decisions"""
+    product: Dict[str, Any]
+    target_price: int
+    max_budget: int
+    seller_messages: List[str]
+    chat_history: List[Dict[str, Any]]
+    market_data: Dict[str, Any]
+    session_data: Dict[str, Any]
+    negotiation_phase: str
+
+class NegotiationResponse(BaseModel):
+    """Structured response from the AI agent"""
+    message: str = Field(description="Message to send to seller")
+    action_type: str = Field(description="Type of action: offer, counter_offer, accept, reject, question")
+    price_offer: Optional[int] = Field(description="Price offer if making an offer", default=None)
+    confidence: float = Field(description="Confidence in this response (0-1)")
+    reasoning: str = Field(description="Internal reasoning for this response")
+    tactics_used: List[str] = Field(description="Negotiation tactics employed")
+    next_steps: List[str] = Field(description="Recommended next steps")
+
 
 class EnhancedAIService:
     """Enhanced AI service combining traditional negotiation engine with MCP and Gemini"""
@@ -116,14 +157,46 @@ class EnhancedAIService:
             # Step 2: Try LangChain agent first (highest priority)
             if self.use_langchain and self.langchain_agent:
                 try:
-                    # Convert context to LangChain format
+                    # Convert Pydantic models to dictionaries for LangChain compatibility
+                    try:
+                        product_dict = product.dict() if hasattr(product, 'dict') else dict(product.__dict__)
+                    except Exception as e:
+                        logger.warning(f"Product conversion error: {e}")
+                        product_dict = {
+                            "id": getattr(product, 'id', ''),
+                            "title": getattr(product, 'title', ''),
+                            "price": getattr(product, 'price', 0),
+                            "description": getattr(product, 'description', '')
+                        }
+                    
+                    # Convert chat_history to list of dictionaries
+                    chat_history_dicts = []
+                    for msg in context.chat_history:
+                        try:
+                            if hasattr(msg, 'dict'):
+                                msg_dict = msg.dict()
+                                # Ensure datetime objects are converted to strings
+                                if 'timestamp' in msg_dict and hasattr(msg_dict['timestamp'], 'isoformat'):
+                                    msg_dict['timestamp'] = msg_dict['timestamp'].isoformat()
+                                chat_history_dicts.append(msg_dict)
+                            else:
+                                chat_history_dicts.append(dict(msg))
+                        except Exception as e:
+                            logger.warning(f"Chat message conversion error: {e}")
+                            # Fallback with basic structure
+                            chat_history_dicts.append({
+                                "sender": getattr(msg, 'sender', 'unknown'),
+                                "content": getattr(msg, 'content', ''),
+                                "timestamp": getattr(msg, 'timestamp', datetime.now()).isoformat() if hasattr(getattr(msg, 'timestamp', None), 'isoformat') else str(getattr(msg, 'timestamp', ''))
+                            })
+                    
                     langchain_context = LangChainContext(
-                        product=product,
+                        product=product_dict,
                         target_price=context.target_price,
                         max_budget=context.max_budget,
                         current_offer=session_data.get("last_offer"),
                         seller_messages=context.seller_messages,
-                        chat_history=context.chat_history,
+                        chat_history=chat_history_dicts,
                         market_data=context.market_data,
                         session_data=context.session_data,
                         negotiation_phase=context.negotiation_phase
@@ -133,12 +206,27 @@ class EnhancedAIService:
                         langchain_context
                     )
                     
-                    if langchain_decision and langchain_decision.get("confidence", 0) > 0.6:
+                    if langchain_decision and langchain_decision.get("confidence", 0) >= 0.4:
                         logger.info("🚀 Using LangChain agent decision")
-                        self._log_decision(langchain_decision, session_data)
-                        return langchain_decision
+                        # Transform LangChain response to match expected format
+                        formatted_decision = {
+                            'response': langchain_decision.get('message', ''),
+                            'decision': {
+                                'action': langchain_decision.get('action_type', 'respond'),
+                                'confidence': langchain_decision.get('confidence', 0.75),
+                                'reasoning': langchain_decision.get('reasoning', ''),
+                                'price_offer': langchain_decision.get('price_offer')
+                            },
+                            'tactics_used': langchain_decision.get('tactics_used', []),
+                            'phase': langchain_decision.get('negotiation_phase', 'exploration'),
+                            'confidence': langchain_decision.get('confidence', 0.75),
+                            'seller_analysis': langchain_decision.get('seller_analysis', {}),
+                            'source': 'langchain_agent'
+                        }
+                        self._log_decision(formatted_decision, session_data)
+                        return formatted_decision
                     else:
-                        logger.info("LangChain confidence low, falling back to engine")
+                        logger.info(f"LangChain confidence low ({langchain_decision.get('confidence', 0) if langchain_decision else 'None'}), falling back to engine")
                         
                 except Exception as e:
                     logger.error(f"LangChain agent error: {e}")
@@ -213,7 +301,16 @@ class EnhancedAIService:
         negotiation_phase = self._determine_phase(chat_history, seller_message)
         
         # Analyze seller messages
-        seller_messages = [msg.content for msg in chat_history if msg.sender == "seller"]
+        seller_messages = []
+        for msg in chat_history:
+            # Handle both object and dict formats
+            if hasattr(msg, 'sender') and hasattr(msg, 'content'):
+                if msg.sender == "seller":
+                    seller_messages.append(msg.content)
+            elif isinstance(msg, dict):
+                if msg.get('sender') == "seller":
+                    seller_messages.append(msg.get('content', ''))
+        
         if seller_message:
             seller_messages.append(seller_message)
         
@@ -258,46 +355,91 @@ class EnhancedAIService:
             product_name = context.product.title if hasattr(context.product, 'title') else 'Unknown'
             product_price = context.product.price if hasattr(context.product, 'price') else 0
             prompt = f"""
-            You are an expert negotiation advisor. Analyze this negotiation situation and enhance the proposed response:
+            You are a master negotiation strategist. Create a sophisticated, market-driven response for this negotiation:
             
-            Product: {product_name}
-            Current Price: ${product_price}
-            Target Price: ${context.target_price}
-            Max Budget: ${context.max_budget}
-            Negotiation Phase: {context.negotiation_phase}
+            SITUATION ANALYSIS:
+            - Product: {product_name}
+            - Listed Price: ₹{product_price}
+            - Target Price: ₹{context.target_price}
+            - Max Budget: ₹{context.max_budget}
+            - Phase: {context.negotiation_phase}
             
-            Proposed Action: {base_decision.get('action_type', 'unknown')}
-            Proposed Message: {base_decision.get('message', '')}
-            Proposed Price: ${base_decision.get('price_offer', 'None')}
+            SELLER'S RECENT BEHAVIOR:
+            {context.seller_messages[-2:] if context.seller_messages else ['No messages yet']}
             
-            Recent seller messages: {context.seller_messages[-2:] if context.seller_messages else ['No messages yet']}
+            CURRENT PROPOSAL TO ENHANCE:
+            - Action: {base_decision.get('action_type', 'unknown')}
+            - Message: {base_decision.get('message', '')}
+            - Price Offer: ₹{base_decision.get('price_offer', 'None')}
             
-            Please suggest improvements to:
-            1. Message tone and content
-            2. Negotiation strategy
-            3. Price positioning
-            4. Overall approach
+            STRATEGIC ENHANCEMENT REQUIRED:
+            1. **MARKET POSITIONING**: Use specific market data points and comparisons
+            2. **PSYCHOLOGICAL TACTICS**: Apply anchoring, reciprocity, or scarcity as appropriate  
+            3. **INCREMENTAL PROGRESSION**: Show strategic movement toward agreement
+            4. **EVIDENCE-BASED ARGUMENTS**: Include reasons why the price is justified
+            5. **PROFESSIONAL TONE**: Maintain respect while being firm and confident
             
-            Respond in JSON format with: message_enhancement, strategy_tips, confidence_adjustment
+            Create a response that:
+            - Uses market intelligence to justify price points
+            - Shows strategic thinking with specific reasoning
+            - Applies appropriate negotiation tactics for the current phase
+            - Maintains professional relationship while driving toward target
+            
+            JSON Response Required: {{"message_enhancement": "enhanced strategic message", "strategy_tips": "tactical reasoning", "confidence_adjustment": 0.1}}
             """
             
-            # Get response from Gemini
-            response = await self.gemini_service.generate_text(prompt)
+            # Get response from Gemini using strategic response method
+            # Convert context.product to Product object if it's a dict
+            if isinstance(context.product, dict):
+                from models import Product
+                from datetime import datetime
+                product_obj = Product(
+                    id=context.product.get('id', ''),
+                    title=context.product.get('title', ''),
+                    description=context.product.get('description', ''),
+                    price=context.product.get('price', 0),
+                    original_price=context.product.get('original_price', context.product.get('price', 0)),
+                    seller_name=context.product.get('seller_name', ''),
+                    seller_contact=context.product.get('seller_contact', ''),
+                    location=context.product.get('location', ''),
+                    url=context.product.get('url', ''),
+                    platform=context.product.get('platform', ''),
+                    category=context.product.get('category', ''),
+                    condition=context.product.get('condition', ''),
+                    images=context.product.get('images', []),
+                    features=context.product.get('features', []),
+                    posted_date=datetime.now(),
+                    is_available=context.product.get('is_available', True)
+                )
+            else:
+                product_obj = context.product
+
+            response = await self.gemini_service.generate_strategic_response(
+                session_data=context.session_data,
+                seller_message=context.seller_messages[-1] if context.seller_messages else "",
+                tactics=[],  # Will be determined by the method
+                decision=base_decision,
+                product=product_obj
+            )
             
-            if response and response.get("content"):
+            if response:
                 try:
-                    # Try to parse as JSON
-                    import re
-                    json_match = re.search(r'\{.*\}', response["content"], re.DOTALL)
-                    if json_match:
-                        enhancement = json.loads(json_match.group())
-                        return enhancement
+                    # Handle both string and dict responses
+                    content = response.get("content") if isinstance(response, dict) else response
+                    if content:
+                        # Try to parse as JSON
+                        import re
+                        json_match = re.search(r'\{.*\}', str(content), re.DOTALL)
+                        if json_match:
+                            enhancement = json.loads(json_match.group())
+                            return enhancement
                 except json.JSONDecodeError:
                     pass
                 
                 # If JSON parsing fails, return structured response
+                content = response.get("content") if isinstance(response, dict) else str(response)
                 return {
-                    "message_enhancement": response["content"][:200],
+                    "message_enhancement": content[:200] if content else "Enhancement unavailable",
                     "strategy_tips": ["Use Gemini's advice"],
                     "confidence_adjustment": 0.1
                 }
@@ -372,12 +514,57 @@ class EnhancedAIService:
                 session_data, seller_message, chat_history, product
             )
             
-            # Ensure proper format
+            # Generate dynamic context-aware fallback messages
+            user_params = session_data.get("user_params", {})
+            target_price = getattr(user_params, 'target_price', None) if hasattr(user_params, 'target_price') else user_params.get("target_price")
+            
+            # Analyze recent conversation for context
+            recent_messages = chat_history[-3:] if chat_history else []
+            conversation_context = ""
+            for msg in recent_messages:
+                if hasattr(msg, 'content'):
+                    conversation_context += f"{msg.sender}: {msg.content} "
+            
+            # Generate contextual responses based on seller's message
+            contextual_responses = []
+            
+            if "price" in seller_message.lower() or any(digit.isdigit() for digit in seller_message):
+                # Seller mentioned price - respond to their offer
+                contextual_responses = [
+                    f"I appreciate your offer, but I was hoping we could find a middle ground closer to ₹{target_price:,}. What do you think?",
+                    f"That's higher than I was expecting. I've seen similar items for around ₹{target_price:,}. Can we work something out?",
+                    f"I understand your position, but based on market rates, ₹{target_price:,} seems more reasonable. Would that work for you?"
+                ]
+            elif "no" in seller_message.lower() or "can't" in seller_message.lower():
+                # Seller is resistant - be more persuasive
+                contextual_responses = [
+                    f"I completely understand your concerns. Perhaps we can find a compromise? What if we settle at ₹{target_price:,}?",
+                    f"I respect that, but I'm really interested in this item. Could we possibly meet at ₹{target_price:,}?",
+                    f"Fair enough. Let me ask - what's the lowest you'd be comfortable with? I was thinking around ₹{target_price:,}."
+                ]
+            elif "okay" in seller_message.lower() or "yes" in seller_message.lower():
+                # Seller seems agreeable - be positive but still negotiate
+                contextual_responses = [
+                    f"Great! I'm glad we're on the same page. How does ₹{target_price:,} sound to you?",
+                    f"Excellent! I think ₹{target_price:,} would be fair for both of us. What do you say?",
+                    f"Perfect! Based on what I've researched, ₹{target_price:,} seems like a win-win. Agreed?"
+                ]
+            else:
+                # Default strategic messages
+                contextual_responses = [
+                    f"Thanks for getting back to me! I've been looking at similar products, and ₹{target_price:,} seems like a fair market price.",
+                    f"I appreciate you considering my interest. Based on my research, ₹{target_price:,} would be a reasonable price for this.",
+                    f"I'm really interested in this item. From what I've seen in the market, ₹{target_price:,} would be a good deal for both of us."
+                ]
+            
+            import random
+            fallback_message = random.choice(contextual_responses) if target_price else "I'm interested in this product. Can we discuss the price based on current market conditions?"
+            
             return {
-                "message": decision.get("message", "I'm interested in this product. Can we discuss the price?"),
-                "action_type": decision.get("action_type", "question"),
-                "price_offer": decision.get("price_offer"),
-                "confidence": decision.get("confidence", 0.6),
+                "message": decision.get("message", fallback_message),
+                "action_type": decision.get("action_type", "counter_offer"),
+                "price_offer": decision.get("price_offer", target_price),
+                "confidence": decision.get("confidence", 0.7),
                 "reasoning": "Fallback negotiation engine",
                 "tactics_used": ["traditional_negotiation"],
                 "next_steps": ["await_seller_response"]
@@ -430,7 +617,7 @@ class EnhancedAIService:
                 "decision": decision,
                 "context_summary": {
                     "user_id": session_data.get("user_id"),
-                    "product_id": session_data.get("product", {}).get("id"),
+                    "product_id": self._get_product_id_safely(session_data),
                     "negotiation_round": len(session_data.get("chat_history", []))
                 }
             }
@@ -440,6 +627,18 @@ class EnhancedAIService:
             
         except Exception as e:
             logger.error(f"Error logging decision: {e}")
+
+    def _get_product_id_safely(self, session_data: Dict[str, Any]) -> Optional[str]:
+        """Safely extract product ID from session data"""
+        try:
+            product = session_data.get("product")
+            if hasattr(product, 'id'):
+                return product.id
+            elif isinstance(product, dict):
+                return product.get("id")
+            return None
+        except Exception:
+            return None
 
     def get_service_status(self) -> Dict[str, Any]:
         """Get comprehensive status of all AI services"""

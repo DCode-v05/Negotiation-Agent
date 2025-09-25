@@ -144,7 +144,7 @@ PRODUCT DETAILS:
 - Seller: {product.seller_name}
 - Location: {product.location}
 
-NEGOTIATION APPROACH: {approach.value.upper()}
+NEGOTIATION APPROACH: {approach.value.upper() if hasattr(approach, 'value') else str(approach).upper()}
 - Style: {strategy["style"]}
 - Tactics: {strategy["tactics"]}
 - Personality: {strategy["personality"]}
@@ -156,7 +156,7 @@ LATEST SELLER MESSAGE: "{last_seller_message}"
 
 INSTRUCTIONS:
 1. Respond as a human buyer (never mention you're an AI)
-2. Use the {approach.value} negotiation approach consistently
+2. Use the {approach.value if hasattr(approach, 'value') else str(approach)} negotiation approach consistently
 3. Stay within your budget constraints (max ₹{max_budget:,})
 4. Work towards your target price of ₹{target_price:,}
 5. Keep responses conversational and natural (50-80 words)
@@ -247,7 +247,7 @@ PRODUCT DETAILS:
 - Location: {product.location}
 - Platform: {product.platform}
 
-NEGOTIATION APPROACH: {session.user_params.approach.value.upper()}
+NEGOTIATION APPROACH: {session.user_params.approach.value.upper() if hasattr(session.user_params.approach, 'value') else str(session.user_params.approach).upper()}
 {market_context}
 {performance_context}
 {decision_context}
@@ -272,7 +272,7 @@ ADVANCED INSTRUCTIONS:
 9. If price is discussed, use market data to justify your position
 10. Always work towards your target price while respecting maximum budget
 
-CURRENT NEGOTIATION PHASE: {session_data.get('phase', NegotiationPhase.EXPLORATION).value}
+CURRENT NEGOTIATION PHASE: {session_data.get('phase', NegotiationPhase.EXPLORATION).value if hasattr(session_data.get('phase', NegotiationPhase.EXPLORATION), 'value') else str(session_data.get('phase', 'exploration'))}
 
 Generate your strategic response as the buyer:
 """

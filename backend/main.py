@@ -36,6 +36,7 @@ from gemini_service import GeminiOnlyService
 from websocket_manager import ConnectionManager
 from session_manager import AdvancedSessionManager
 from scraper_service import MarketplaceScraper, MarketIntelligence
+from enhanced_scraper import EnhancedMarketplaceScraper
 from negotiation_engine import AdvancedNegotiationEngine
 from auth_service import AuthenticationService
 from enhanced_ai_service import EnhancedAIService
@@ -49,6 +50,7 @@ class URLNegotiationRequest(BaseModel):
     approach: str = Field(..., description="Negotiation approach: assertive, diplomatic, considerate")
     timeline: str = Field(default="flexible", description="Purchase timeline: urgent, week, flexible")
     special_requirements: Optional[str] = Field(None, description="Special requirements")
+    scraping_method: Optional[str] = Field(default="enhanced", description="Scraping method: enhanced, standard")
 
 class SellerResponseRequest(BaseModel):
     session_id: str
@@ -104,10 +106,10 @@ async def lifespan(app: FastAPI):
         logger.warning(f"MCP server initialization failed: {e}")
     
     logger.info("INFO: NegotiBot AI Enhanced Backend started successfully!")
-    logger.info("INFO: - 🚀 LangChain Agent: Fully Integrated & Active")
-    logger.info("INFO: - 🔧 MCP Integration: Available (Currently Disabled)") 
-    logger.info("INFO: - 🤖 Gemini Fallback: Available")
-    logger.info("INFO: - 🛠️ Advanced Negotiation Tools: Market Analysis, Price Calculator, Strategy Advisor")
+    logger.info("INFO: - LangChain Agent: Fully Integrated & Active")
+    logger.info("INFO: - MCP Integration: Available (Currently Disabled)") 
+    logger.info("INFO: - Gemini Fallback: Available")
+    logger.info("INFO: - Advanced Negotiation Tools: Market Analysis, Price Calculator, Strategy Advisor")
     yield
     # Shutdown (if needed)
     pass
@@ -135,21 +137,75 @@ app.add_middleware(
 # Custom validation error handler
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """Handle validation errors with detailed messages"""
+    """Handle validation errors with user-friendly messages"""
     from fastapi.responses import JSONResponse
     
-    errors = []
+    # Map technical field names to user-friendly names
+    field_mapping = {
+        "username": "Username",
+        "password": "Password", 
+        "email": "Email",
+        "full_name": "Full Name",
+        "phone": "Phone Number",
+        "role": "Account Type"
+    }
+    
+    # Map technical error messages to user-friendly ones
+    message_mapping = {
+        "field required": "is required",
+        "string too short": "is too short",
+        "string too long": "is too long",
+        "value is not a valid email address": "must be a valid email address",
+        "ensure this value has at least": "must have at least",
+        "ensure this value has at most": "must have at most"
+    }
+    
+    user_friendly_errors = []
     for error in exc.errors():
-        field = " -> ".join(str(loc) for loc in error["loc"])
-        message = error["msg"]
-        errors.append(f"{field}: {message}")
+        field_path = error["loc"]
+        field_name = str(field_path[-1]) if field_path else "Field"
+        
+        # Get user-friendly field name
+        friendly_field = field_mapping.get(field_name, field_name.replace("_", " ").title())
+        
+        # Get user-friendly error message
+        original_msg = error.get("msg", "")
+        friendly_msg = original_msg
+        
+        for tech_msg, user_msg in message_mapping.items():
+            if tech_msg in original_msg.lower():
+                friendly_msg = user_msg
+                break
+        
+        # Special cases for specific validations
+        if "value_error.email" in error.get("type", ""):
+            friendly_msg = "must be a valid email address"
+        elif "value_error.any_str.min_length" in error.get("type", ""):
+            friendly_msg = f"must be at least {error.get('ctx', {}).get('limit_value', 'X')} characters"
+        elif "value_error.any_str.max_length" in error.get("type", ""):
+            friendly_msg = f"must be no more than {error.get('ctx', {}).get('limit_value', 'X')} characters"
+        
+        user_friendly_errors.append(f"{friendly_field} {friendly_msg}")
+    
+    # Create a user-friendly main message based on the endpoint
+    endpoint = str(request.url.path)
+    if "login" in endpoint:
+        main_message = "Login information is incomplete or invalid"
+        hint = "Please make sure you've entered your username, password, and selected your account type (Buyer or Seller)"
+    elif "register" in endpoint:
+        main_message = "Registration information is incomplete or invalid"
+        hint = "Please fill in all required fields: username, email, full name, phone number, password, and account type"
+    else:
+        main_message = "Please check the information you've entered"
+        hint = "Make sure all required fields are filled in correctly"
     
     return JSONResponse(
         status_code=422,
         content={
-            "message": "Validation failed - please check required fields",
-            "errors": errors,
-            "hint": "For login, make sure to include: username, password, and role (buyer/seller)"
+            "success": False,
+            "message": main_message,
+            "errors": user_friendly_errors,
+            "hint": hint
         }
     )
 
@@ -291,6 +347,15 @@ async def seller_portal_redirect():
     from fastapi.responses import RedirectResponse
     return RedirectResponse(url="/react/seller-portal.html")
 
+@app.get("/react-app.html")
+async def buyer_portal():
+    """Serve buyer portal directly"""
+    buyer_portal_path = Path(__file__).parent.parent / "frontend" / "react-app.html"
+    if buyer_portal_path.exists():
+        return FileResponse(buyer_portal_path)
+    else:
+        raise HTTPException(status_code=404, detail="Buyer portal not found")
+
 # ===== AUTHENTICATION ENDPOINTS =====
 
 @app.get("/api/auth/roles")
@@ -305,7 +370,7 @@ async def get_user_roles():
 
 @app.post("/api/auth/register")
 async def register_user(user_data: UserRegistration):
-    """Register a new user"""
+    """Register a new user and automatically log them in"""
     try:
         result = await auth_service.register_user(
             username=user_data.username,
@@ -317,17 +382,78 @@ async def register_user(user_data: UserRegistration):
         )
         
         if result["success"]:
-            return {
-                "success": True,
-                "message": "User registered successfully",
-                "user_id": result["user_id"]
-            }
+            # Auto-login after successful registration
+            try:
+                login_result = await auth_service.login_user(
+                    username=user_data.username,
+                    password=user_data.password,
+                    role=user_data.role.value
+                )
+                
+                if login_result["success"]:
+                    return {
+                        "success": True,
+                        "message": "Registration and login successful",
+                        "user": login_result["user"],
+                        "token": login_result["token"],
+                        "session_id": login_result["session_id"],
+                        "auto_login": True
+                    }
+                else:
+                    # Registration successful but auto-login failed
+                    return {
+                        "success": True,
+                        "message": "Registration successful, please login manually",
+                        "user": result.get("user"),
+                        "user_id": result["user_id"],
+                        "auto_login": False
+                    }
+            except Exception as login_error:
+                logger.error(f"Auto-login after registration failed: {str(login_error)}")
+                # Registration successful but auto-login failed
+                return {
+                    "success": True,
+                    "message": "Registration successful, please login manually",
+                    "user": result.get("user"),
+                    "user_id": result["user_id"],
+                    "auto_login": False
+                }
         else:
-            raise HTTPException(status_code=400, detail=result["message"])
+            # Provide user-friendly error messages for registration
+            error_message = result.get("message", "Registration failed")
             
+            # Map common technical errors to user-friendly messages  
+            if "username already exists" in error_message.lower() or "already taken" in error_message.lower():
+                user_friendly_message = "This username is already taken. Please choose a different username."
+            elif "email already exists" in error_message.lower() or "email.*already" in error_message.lower():
+                user_friendly_message = "An account with this email already exists. Please use a different email or try logging in."
+            elif "phone" in error_message.lower() and "invalid" in error_message.lower():
+                user_friendly_message = "Please enter a valid phone number with at least 10 digits."
+            elif "password" in error_message.lower() and ("short" in error_message.lower() or "weak" in error_message.lower()):
+                user_friendly_message = "Password must be at least 6 characters long."
+            else:
+                user_friendly_message = error_message
+                
+            raise HTTPException(
+                status_code=400, 
+                detail={
+                    "success": False,
+                    "message": user_friendly_message,
+                    "hint": "Please check all your information and try again."
+                }
+            )
+    except HTTPException:
+        raise  
     except Exception as e:
         logger.error(f"Registration error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Registration failed")
+        raise HTTPException(
+            status_code=500, 
+            detail={
+                "success": False,
+                "message": "We're having trouble creating your account right now. Please try again in a moment.",
+                "hint": "If the problem persists, please contact support."
+            }
+        )
 
 @app.post("/api/auth/login")
 async def login_user(user_credentials: UserLogin):
@@ -348,11 +474,42 @@ async def login_user(user_credentials: UserLogin):
                 "session_id": result["session_id"]
             }
         else:
-            raise HTTPException(status_code=401, detail=result["message"])
+            # Provide user-friendly error messages
+            error_message = result.get("message", "Login failed")
             
+            # Map common technical errors to user-friendly messages
+            if "user not found" in error_message.lower():
+                user_friendly_message = "Username not found. Please check your username or register if you don't have an account."
+            elif "incorrect password" in error_message.lower() or "invalid password" in error_message.lower():
+                user_friendly_message = "Incorrect password. Please check your password and try again."
+            elif "invalid credentials" in error_message.lower():
+                user_friendly_message = "Invalid username or password. Please check your credentials and try again."
+            elif "role" in error_message.lower():
+                user_friendly_message = "Please select whether you're logging in as a Buyer or Seller."
+            else:
+                user_friendly_message = error_message
+                
+            raise HTTPException(
+                status_code=401, 
+                detail={
+                    "success": False,
+                    "message": user_friendly_message,
+                    "hint": "Make sure you're using the correct username, password, and account type."
+                }
+            )
+            
+    except HTTPException:
+        raise 
     except Exception as e:
         logger.error(f"Login error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Login failed")
+        raise HTTPException(
+            status_code=500, 
+            detail={
+                "success": False,
+                "message": "We're having trouble logging you in right now. Please try again in a moment.",
+                "hint": "If the problem persists, please contact support."
+            }
+        )
 
 @app.post("/api/auth/logout")
 async def logout_user(logout_data: LogoutRequest):
@@ -410,6 +567,27 @@ async def update_user_profile(user_id: str, profile_data: UserProfileUpdate):
     except Exception as e:
         logger.error(f"Profile update error: {str(e)}")
         raise HTTPException(status_code=500, detail="Profile update failed")
+
+@app.get("/api/auth/validate-session/{session_id}")
+async def validate_session(session_id: str):
+    """Validate session and return user info if valid"""
+    try:
+        result = await auth_service.validate_session(session_id)
+        
+        if result["success"]:
+            return {
+                "success": True,
+                "user": result["user"],
+                "session": result["session"]
+            }
+        else:
+            raise HTTPException(status_code=401, detail=result["message"])
+            
+    except HTTPException:
+        raise 
+    except Exception as e:
+        logger.error(f"Session validation error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Session validation failed")
 
 # ===== NEGOTIATION ENDPOINTS =====
 
@@ -629,21 +807,21 @@ async def start_negotiation_from_url(request: URLNegotiationRequest, background_
         session_id = session_result['session_id']
         background_tasks.add_task(auto_start_negotiation, session_id)
         
+        # Return response in format expected by frontend
+        product_info = session_result['product'].dict() if session_result.get('product') else {
+            "title": "Product from marketplace",
+            "price": request.target_price,
+            "platform": "Marketplace"
+        }
+        
         return {
             "success": True,
+            "session_id": session_id,
             "session": {
-                "session_id": session_id,
-                "product_info": session_result['product'].dict() if session_result.get('product') else {
-                    "title": "Product from marketplace",
-                    "price": request.target_price,
-                    "platform": "Marketplace"
-                }
+                "session_id": session_id
             },
-            "product_info": session_result['product'].dict() if session_result.get('product') else {
-                "title": "Product from marketplace", 
-                "price": request.target_price,
-                "platform": "Marketplace"
-            },
+            "product": product_info,
+            "product_info": product_info,
             "market_analysis": session_result.get('market_analysis', {}),
             "strategy": session_result.get('strategy', {}),
             "message": "Negotiation session created! AI analysis complete - ready to negotiate."
@@ -677,8 +855,15 @@ async def analyze_market_price(request: URLNegotiationRequest):
     Get comprehensive market analysis for a product URL without starting negotiation
     """
     try:
-        async with MarketplaceScraper() as scraper:
-            product_data = await scraper.scrape_product(request.product_url)
+        # Use enhanced scraper for better results
+        scraping_method = getattr(request, 'scraping_method', 'enhanced')
+        
+        if scraping_method == 'enhanced':
+            async with EnhancedMarketplaceScraper() as scraper:
+                product_data = await scraper.scrape_product(request.product_url)
+        else:
+            async with MarketplaceScraper() as scraper:
+                product_data = await scraper.scrape_product(request.product_url)
         
         if not product_data:
             raise HTTPException(status_code=400, detail="Could not scrape product information")
@@ -1134,8 +1319,9 @@ def get_session_details(session_id: str):
                 "url": getattr(product, 'url', '')
             }
     
-    # Extract user parameters
-    user_params = session_data.get("user_params", {})
+    # Extract user parameters from session object
+    session_obj = session_data.get("session")
+    user_params = session_obj.user_params if session_obj and hasattr(session_obj, 'user_params') else session_data.get("user_params", {})
     
     # Handle user_params as either dict or NegotiationParams object
     if hasattr(user_params, 'target_price'):
@@ -1146,6 +1332,8 @@ def get_session_details(session_id: str):
         target_price = user_params.get("target_price")
         max_budget = user_params.get("max_budget")
         user_preferences = user_params
+    
+
     
     return {
         "session_id": session_id,
