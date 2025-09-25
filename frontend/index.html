@@ -213,10 +213,13 @@
                 setShowAuth(false);
                 
                 // Redirect based on user type
+                console.log('Redirecting user with role:', userData?.role);
                 if (userData && userData.role === 'seller') {
-                    window.location.href = '/seller-portal.html';
+                    console.log('Redirecting to seller portal...');
+                    window.location.href = './seller-portal.html';
                 } else {
-                    window.location.href = '/react-app.html';
+                    console.log('Redirecting to buyer portal...');
+                    window.location.href = './react-app.html';
                 }
             };
 
@@ -474,7 +477,8 @@
                         }
                     }
 
-                    const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
+                    const baseURL = 'http://localhost:8000';
+                    const endpoint = isLogin ? `${baseURL}/api/auth/login` : `${baseURL}/api/auth/register`;
                     
                     // Fix: Use correct field names for backend API
                     const payload = isLogin 
@@ -501,6 +505,9 @@
                     const data = await response.json();
 
                     if (response.ok && data.success && data.user) {
+                        console.log('Authentication successful:', data);
+                        console.log('User data:', data.user);
+                        console.log('User role:', data.user.role);
                         onAuthSuccess(data.user, data.token, data.session_id);
                     } else {
                         // Handle different types of errors with user-friendly messages

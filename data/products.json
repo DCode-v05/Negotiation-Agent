@@ -862,5 +862,29 @@
     "features": [],
     "posted_date": "2025-09-25T23:00:29.333092",
     "is_available": true
+  },
+  {
+    "id": "scraped_8c57aadc-0abd-4674-b23b-4f2151abd1f3",
+    "title": "Iphone 15 Pro 128gb Black Titanium",
+    "description": "Product description not available",
+    "price": 59000,
+    "original_price": 59000,
+    "seller_name": "OLX Seller",
+    "seller_contact": "Contact via OLX platform",
+    "location": "India",
+    "url": "https://www.olx.in/item/mobile-phones-c1453-used-iphone-in-t-nagar-chennai-iid-1799039844",
+    "platform": "OLX",
+    "category": "Mobile Phones",
+    "condition": "Used",
+    "images": [
+      "https://statics.olx.in/external/base/img/olxLogo/olx_logo_2025.svg",
+      "https://apollo.olx.in:443/v1/files/l9bkypq2ae2s2-IN/image;s=600x1200;q=60",
+      "https://apollo.olx.in:443/v1/files/l9bkypq2ae2s2-IN/image;s=600x1200;q=60",
+      "https://apollo.olx.in/v1/files/alias-facebook-icon/image;original=true",
+      "https://apollo.olx.in/v1/files/alias-instagram-icon/image;original=true"
+    ],
+    "features": [],
+    "posted_date": "2025-09-25T23:12:28.975576",
+    "is_available": true
   }
 ]
