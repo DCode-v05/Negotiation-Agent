@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from contextlib import asynccontextmanager
 from enum import Enum
+from pathlib import Path
 import json
 import asyncio
 import uuid
@@ -228,6 +229,31 @@ if full_interface_path.exists():
 react_path = Path(__file__).parent.parent / "frontend"
 if react_path.exists():
     app.mount("/react", StaticFiles(directory=str(react_path)), name="frontend")
+
+# Serve main HTML files directly
+@app.get("/")
+async def root():
+    """Serve the main landing page"""
+    frontend_path = Path(__file__).parent.parent / "frontend" / "index.html"
+    if frontend_path.exists():
+        return FileResponse(frontend_path)
+    raise HTTPException(status_code=404, detail="Frontend not found")
+
+@app.get("/seller-portal.html")
+async def seller_portal():
+    """Serve the seller portal page"""
+    frontend_path = Path(__file__).parent.parent / "frontend" / "seller-portal.html"
+    if frontend_path.exists():
+        return FileResponse(frontend_path)
+    raise HTTPException(status_code=404, detail="Seller portal not found")
+
+@app.get("/react-app.html") 
+async def buyer_portal():
+    """Serve the buyer portal page"""
+    frontend_path = Path(__file__).parent.parent / "frontend" / "react-app.html"
+    if frontend_path.exists():
+        return FileResponse(frontend_path)
+    raise HTTPException(status_code=404, detail="Buyer portal not found")
 
 # Initialize services
 db = JSONDatabase()

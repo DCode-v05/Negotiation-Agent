@@ -477,8 +477,8 @@
                         }
                     }
 
-                    const baseURL = 'http://localhost:8000';
-                    const endpoint = isLogin ? `${baseURL}/api/auth/login` : `${baseURL}/api/auth/register`;
+                    // Use relative URLs since we'll serve from the same backend
+                    const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
                     
                     // Fix: Use correct field names for backend API
                     const payload = isLogin 
@@ -542,12 +542,15 @@
                     let errorMessage = 'Connection failed. Please check your internet connection and try again.';
                     
                     if (error.name === 'TypeError' && error.message.includes('fetch')) {
-                        errorMessage = 'Unable to connect to the server. Please check your internet connection.';
+                        errorMessage = 'Unable to connect to the backend server. Please ensure the server is running on port 8000.';
                     } else if (error.message.includes('timeout')) {
                         errorMessage = 'Request timed out. Please try again.';
+                    } else if (error.message.includes('ERR_BLOCKED_BY_CLIENT')) {
+                        errorMessage = 'Request blocked by browser or ad blocker. Please disable ad blockers and try again.';
                     }
                     
-                    alert(errorMessage);
+                    // Also show the actual error for debugging
+                    alert(errorMessage + '\n\nDebug info: ' + error.message);
                 } finally {
                     setIsLoading(false);
                 }
