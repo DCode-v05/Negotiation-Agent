@@ -16,7 +16,7 @@ class GeminiOnlyService:
     def __init__(self):
         self.api_key = os.getenv("GEMINI_API_KEY")
         if not self.api_key or self.api_key == "your_gemini_api_key_here":
-            logger.warning("⚠️ GEMINI_API_KEY not configured. Using fallback responses only.")
+            logger.warning("WARNING: GEMINI_API_KEY not configured. Using fallback responses only.")
             self.model = None
         else:
             self.setup_client()
@@ -26,9 +26,9 @@ class GeminiOnlyService:
         try:
             genai.configure(api_key=self.api_key)
             self.model = genai.GenerativeModel('gemini-1.5-flash')
-            logger.info("✅ Gemini AI service initialized successfully")
+            logger.info("INFO: Gemini AI service initialized successfully")
         except Exception as e:
-            logger.error(f"❌ Failed to initialize Gemini AI: {e}")
+            logger.error(f"ERROR: Failed to initialize Gemini AI: {e}")
             self.model = None
     
     async def generate_strategic_response(
@@ -485,14 +485,14 @@ async def test_gemini_connection():
     service = GeminiAIService()
     
     if not service.model:
-        print("❌ Gemini API not configured properly")
+        print("[ERROR] Gemini API not configured properly")
         return False
     
     try:
         test_prompt = "Say 'Hello from Gemini AI!' in a friendly way."
         response = await service._call_gemini_api(test_prompt)
-        print(f"✅ Gemini API test successful: {response}")
+        print(f"[INFO] Gemini API test successful: {response}")
         return True
     except Exception as e:
-        print(f"❌ Gemini API test failed: {e}")
+        print(f"[ERROR] Gemini API test failed: {e}")
         return False

@@ -83,7 +83,7 @@ class LogoutRequest(BaseModel):
 async def lifespan(app: FastAPI):
     # Startup
     await db.initialize()
-    logger.info("✅ NegotiBot AI Full Backend started successfully!")
+    logger.info("INFO: NegotiBot AI Full Backend started successfully!")
     yield
     # Shutdown (if needed)
     pass

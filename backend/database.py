@@ -172,7 +172,7 @@ class JSONDatabase:
         with open(self.products_file, 'w', encoding='utf-8') as f:
             json.dump(initial_products, f, indent=2, ensure_ascii=False)
         
-        print(f"✅ Created initial products database with {len(initial_products)} products")
+        print(f"[INFO] Created initial products database with {len(initial_products)} products")
     
     async def _create_initial_sessions(self):
         """Create initial sessions file"""
@@ -181,7 +181,7 @@ class JSONDatabase:
         with open(self.sessions_file, 'w', encoding='utf-8') as f:
             json.dump(initial_sessions, f, indent=2, ensure_ascii=False)
         
-        print("✅ Created initial sessions database")
+        print("[INFO] Created initial sessions database")
     
     async def get_products(self) -> List[Product]:
         """Get all products"""
