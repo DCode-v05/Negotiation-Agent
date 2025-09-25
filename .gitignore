@@ -76,6 +76,7 @@ server.log
 
 # Environment files
 env/
+venv/
 
 # Dependency directories
 .dependencies_installed

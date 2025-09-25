@@ -81,13 +81,17 @@ class AuthenticationService:
         return encoded_jwt
     
     async def register_user(self, username: str, email: str, password: str, 
-                          full_name: str, phone: str = None, role: str = "buyer") -> Dict[str, Any]:
+                          full_name: str, phone: str, role: str = "buyer") -> Dict[str, Any]:
         """Register a new user (buyer or seller)"""
         users = self._load_users()
         
         # Validate role
         if role not in ["buyer", "seller"]:
             return {"success": False, "message": "Invalid role. Must be 'buyer' or 'seller'"}
+        
+        # Validate phone (now required)
+        if not phone or len(phone.strip()) < 10:
+            return {"success": False, "message": "Phone number is required and must be at least 10 digits"}
         
         # Check if username or email already exists
         for user_id, user_data in users.items():

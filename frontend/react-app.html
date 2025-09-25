@@ -375,21 +375,41 @@
 
             // Authentication methods
             async login(credentials) {
+                console.log('Login request:', credentials);
                 const response = await fetch('/api/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(credentials)
                 });
-                return response.json();
+                const result = await response.json();
+                console.log('Login response:', result);
+                
+                if (!response.ok && result.errors) {
+                    // Handle validation errors
+                    const errorMessage = result.errors.join(', ');
+                    throw new Error(`Validation Error: ${errorMessage}. ${result.hint || ''}`);
+                }
+                
+                return result;
             },
 
             async register(userData) {
+                console.log('Register request:', userData);
                 const response = await fetch('/api/auth/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(userData)
                 });
-                return response.json();
+                const result = await response.json();
+                console.log('Register response:', result);
+                
+                if (!response.ok && result.errors) {
+                    // Handle validation errors
+                    const errorMessage = result.errors.join(', ');
+                    throw new Error(`Validation Error: ${errorMessage}. ${result.hint || ''}`);
+                }
+                
+                return result;
             },
 
             async logout(logoutData) {
@@ -1026,7 +1046,8 @@
                 if (mode === 'login') {
                     await onLogin({
                         username: formData.username,
-                        password: formData.password
+                        password: formData.password,
+                        role: formData.role
                     });
                 } else {
                     await onRegister(formData);
@@ -1109,11 +1130,11 @@
                                 React.createElement('option', {
                                     key: 'buyer',
                                     value: 'buyer'
-                                }, 'Buyer - I want to negotiate purchases'),
+                                }, 'Buyer'),
                                 React.createElement('option', {
                                     key: 'seller',
                                     value: 'seller'
-                                }, 'Seller - I want to list my products')
+                                }, 'Seller')
                             ])
                         ]),
 
@@ -1166,13 +1187,16 @@
                             React.createElement('label', {
                                 key: 'label',
                                 className: 'block text-sm font-medium text-gray-700 mb-1'
-                            }, 'Phone (Optional)'),
+                            }, 'Phone (Required)'),
                             React.createElement('input', {
                                 key: 'input',
                                 type: 'tel',
                                 value: formData.phone,
                                 onChange: (e) => handleInputChange('phone', e.target.value),
-                                className: 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+                                className: 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                                required: true,
+                                minLength: 10,
+                                placeholder: 'Enter phone number (minimum 10 digits)'
                             })
                         ]),
 
@@ -1246,7 +1270,10 @@
                     }
                 } catch (error) {
                     console.error('Login error:', error);
-                    showToast('Login failed. Please try again.', 'error');
+                    const errorMessage = error.message.includes('Validation Error') 
+                        ? error.message 
+                        : 'Login failed. Please check your credentials and try again.';
+                    showToast(errorMessage, 'error');
                 }
             };
 
@@ -1262,7 +1289,10 @@
                     }
                 } catch (error) {
                     console.error('Registration error:', error);
-                    showToast('Registration failed. Please try again.', 'error');
+                    const errorMessage = error.message.includes('Validation Error') 
+                        ? error.message 
+                        : 'Registration failed. Please check all required fields and try again.';
+                    showToast(errorMessage, 'error');
                 }
             };
 

@@ -44,13 +44,14 @@ class InterventionTrigger(Enum):
 class AdvancedSessionManager:
     """Manages complete negotiation session lifecycle"""
     
-    def __init__(self, db: JSONDatabase):
+    def __init__(self, db: JSONDatabase, enhanced_ai_service=None):
         self.db = db
         self.active_sessions: Dict[str, Dict] = {}
         self.negotiation_engine = AdvancedNegotiationEngine()
         self.market_intelligence = MarketIntelligence()
         self.session_analytics = SessionAnalytics()
         self.learning_engine = LearningEngine()
+        self.enhanced_ai_service = enhanced_ai_service  # Enhanced AI service for intelligent negotiation
     
     async def create_session_from_url(self, product_url: str, params: NegotiationParams) -> Dict[str, Any]:
         """
@@ -219,10 +220,29 @@ class AdvancedSessionManager:
             if intervention:
                 return await self._trigger_human_handoff(session_id, intervention)
             
-            # Generate AI response using advanced engine
-            negotiation_result = await self.negotiation_engine.process_negotiation_turn(
-                session_data, seller_message, session.messages, product
-            )
+            # Generate AI response using enhanced AI service (LangChain + MCP) or fallback to engine
+            if self.enhanced_ai_service:
+                negotiation_result = await self.enhanced_ai_service.make_negotiation_decision(
+                    session_data, seller_message, session.messages, product
+                )
+                # Convert to expected format
+                negotiation_result = {
+                    'response': negotiation_result['response'],
+                    'confidence': negotiation_result['confidence'],
+                    'tactics_used': negotiation_result['tactics_used'],
+                    'phase': session_data.get('phase', 'exploration'),
+                    'decision': {
+                        'action': negotiation_result.get('action_type', 'respond'),
+                        'reasoning': negotiation_result.get('reasoning', ''),
+                        'source': negotiation_result.get('source', 'enhanced_ai')
+                    },
+                    'seller_analysis': negotiation_result.get('mcp_insights', {}).get('seller_behavior', {})
+                }
+            else:
+                # Fallback to original negotiation engine
+                negotiation_result = await self.negotiation_engine.process_negotiation_turn(
+                    session_data, seller_message, session.messages, product
+                )
             
             # Create AI response message
             ai_message = ChatMessage(

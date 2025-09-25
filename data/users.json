@@ -1,1 +1,38 @@
-{}
+{
+  "9ypwFDAXWYDn4bb370HdGA": {
+    "user_id": "9ypwFDAXWYDn4bb370HdGA",
+    "username": "testuser",
+    "email": "test@example.com",
+    "password_hash": "c7adee94795c4dfc06052d58acf48554:6cff1c73a0ffcaf74f24ec7ced590065de9c4e1a3f0bf13f3b603541ca9c1828",
+    "full_name": "Test User",
+    "phone": "1234567890",
+    "role": "buyer",
+    "created_at": "2025-09-25T12:37:10.026091",
+    "is_active": true,
+    "profile": {}
+  },
+  "GYve8J7wcdwM5UtjKn4uoA": {
+    "user_id": "GYve8J7wcdwM5UtjKn4uoA",
+    "username": "denistanb05",
+    "email": "denistanb05@gmail.com",
+    "password_hash": "9990172cf06864a6b2d70edff8fc1ef4:fc34e79b60f7fb2f552e27bec3903a9cb55a15d57e4465e2503de0e257741095",
+    "full_name": "Denistan B",
+    "phone": "9677388522",
+    "role": "buyer",
+    "created_at": "2025-09-25T12:39:45.011286",
+    "is_active": true,
+    "profile": {}
+  },
+  "pHE8q2URlQJCuf2CkiSdLw": {
+    "user_id": "pHE8q2URlQJCuf2CkiSdLw",
+    "username": "denistanb",
+    "email": "denistanb@gmail.com",
+    "password_hash": "11cdeb2ead9b8e8530fa930a0c2a1900:dbd16610e838b2c6632bb477eeddfc517e1b5570198b0778a677ea4f469520cd",
+    "full_name": "Deni",
+    "phone": "9677388717",
+    "role": "seller",
+    "created_at": "2025-09-25T12:56:20.768409",
+    "is_active": true,
+    "profile": {}
+  }
+}

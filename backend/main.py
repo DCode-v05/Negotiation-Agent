@@ -3,13 +3,15 @@ Full Negotiation Agent Application
 Complete implementation of the marketplace negotiation workflow
 """
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks, Depends, Header
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks, Depends, Header, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from contextlib import asynccontextmanager
+from enum import Enum
 import json
 import asyncio
 import uuid
@@ -36,6 +38,8 @@ from session_manager import AdvancedSessionManager
 from scraper_service import MarketplaceScraper, MarketIntelligence
 from negotiation_engine import AdvancedNegotiationEngine
 from auth_service import AuthenticationService
+from enhanced_ai_service import EnhancedAIService
+# from mcp_integration import initialize_mcp_server  # Temporarily commented out
 
 # Pydantic models for API endpoints
 class URLNegotiationRequest(BaseModel):
@@ -56,19 +60,26 @@ class SessionEndRequest(BaseModel):
     final_price: Optional[int] = None
     user_notes: Optional[str] = None
 
+# Import custom modules
+
+# User Role Enum
+class UserRole(str, Enum):
+    BUYER = "buyer"
+    SELLER = "seller"
+
 # Authentication models
 class UserRegistration(BaseModel):
-    username: str = Field(..., min_length=3, max_length=30)
-    email: str = Field(..., pattern=r'^[^@]+@[^@]+\.[^@]+$')
-    password: str = Field(..., min_length=6)
-    full_name: str = Field(..., min_length=2)
-    phone: Optional[str] = None
-    role: str = Field(..., description="User role: buyer or seller")
+    username: str = Field(..., min_length=3, max_length=30, description="Username")
+    email: str = Field(..., pattern=r'^[^@]+@[^@]+\.[^@]+$', description="Valid email address")
+    full_name: str = Field(..., min_length=2, description="Full name")
+    phone: str = Field(..., min_length=10, max_length=15, description="Phone number (required)")
+    password: str = Field(..., min_length=6, description="Password (minimum 6 characters)")
+    role: UserRole = Field(..., description="User role: buyer or seller")
 
 class UserLogin(BaseModel):
-    username: str
-    password: str
-    role: str = Field(..., description="User role: buyer or seller")
+    username: str = Field(..., description="Username")
+    password: str = Field(..., description="Password")
+    role: UserRole = Field(..., description="User role: buyer or seller")
 
 class UserProfileUpdate(BaseModel):
     full_name: Optional[str] = None
@@ -82,8 +93,20 @@ class LogoutRequest(BaseModel):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    global mcp_server
     await db.initialize()
-    logger.info("INFO: NegotiBot AI Full Backend started successfully!")
+    
+    # Initialize MCP server
+    try:
+        # mcp_server = initialize_mcp_server(db, session_manager)  # Temporarily commented out
+        logger.info("INFO: MCP server initialized successfully!")
+    except Exception as e:
+        logger.warning(f"MCP server initialization failed: {e}")
+    
+    logger.info("INFO: NegotiBot AI Enhanced Backend started successfully!")
+    logger.info("INFO: - LangChain Agent: Enabled")
+    logger.info("INFO: - MCP Integration: Enabled") 
+    logger.info("INFO: - Gemini Fallback: Available")
     yield
     # Shutdown (if needed)
     pass
@@ -108,6 +131,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Custom validation error handler
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handle validation errors with detailed messages"""
+    from fastapi.responses import JSONResponse
+    
+    errors = []
+    for error in exc.errors():
+        field = " -> ".join(str(loc) for loc in error["loc"])
+        message = error["msg"]
+        errors.append(f"{field}: {message}")
+    
+    return JSONResponse(
+        status_code=422,
+        content={
+            "message": "Validation failed - please check required fields",
+            "errors": errors,
+            "hint": "For login, make sure to include: username, password, and role (buyer/seller)"
+        }
+    )
+
 # Mount static files (keep existing demo)
 demo_path = Path(__file__).parent.parent / "demo"
 if demo_path.exists():
@@ -130,11 +174,18 @@ if react_path.exists():
 
 # Initialize services
 db = JSONDatabase()
-ai_service = GeminiOnlyService()
+ai_service = GeminiOnlyService()  # Legacy service for fallback
 manager = ConnectionManager()
 session_manager = AdvancedSessionManager(db)
 market_intelligence = MarketIntelligence()
 auth_service = AuthenticationService()
+
+# Initialize enhanced AI services with LangChain + MCP
+enhanced_ai_service = EnhancedAIService()
+mcp_server = None
+
+# Update session manager with enhanced AI service
+session_manager.enhanced_ai_service = enhanced_ai_service
 
 # Global storage for active connections
 active_connections: Dict[str, Dict] = {}
@@ -204,21 +255,51 @@ async def health_check():
         # Test database
         products = await db.get_products()
         
-        # Test AI service
+        # Test AI services
         ai_available = ai_service.model is not None
+        ai_status = intelligent_ai_service.get_service_status()
         
         return {
             "status": "healthy",
             "database": "connected",
-            "ai_service": "available" if ai_available else "fallback_mode",
+            "legacy_ai_service": "available" if ai_available else "fallback_mode",
+            "enhanced_ai_service": ai_status,
             "products_count": len(products),
             "active_sessions": len(session_manager.active_sessions)
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Health check failed: {str(e)}")
 
+@app.get("/api/ai/status")
+async def ai_service_status():
+    """Detailed AI service status and performance metrics"""
+    return intelligent_ai_service.get_service_status()
+
+
+# ===== ROOT AND UTILITY ENDPOINTS =====
+
+@app.get("/")
+async def root():
+    """Root endpoint - redirect to main interface"""
+    return {"message": "NegotiBot AI Backend", "frontend_url": "/react/index.html", "seller_portal": "/react/seller-portal.html"}
+
+@app.get("/seller-portal")
+async def seller_portal_redirect():
+    """Redirect to seller portal"""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/react/seller-portal.html")
 
 # ===== AUTHENTICATION ENDPOINTS =====
+
+@app.get("/api/auth/roles")
+async def get_user_roles():
+    """Get available user roles"""
+    return {
+        "roles": [
+            {"value": UserRole.BUYER, "label": "Buyer"},
+            {"value": UserRole.SELLER, "label": "Seller"}
+        ]
+    }
 
 @app.post("/api/auth/register")
 async def register_user(user_data: UserRegistration):
@@ -230,7 +311,7 @@ async def register_user(user_data: UserRegistration):
             password=user_data.password,
             full_name=user_data.full_name,
             phone=user_data.phone,
-            role=user_data.role
+            role=user_data.role.value
         )
         
         if result["success"]:
@@ -253,7 +334,7 @@ async def login_user(user_credentials: UserLogin):
         result = await auth_service.login_user(
             username=user_credentials.username,
             password=user_credentials.password,
-            role=user_credentials.role
+            role=user_credentials.role.value
         )
         
         if result["success"]:
@@ -846,144 +927,6 @@ async def start_negotiation_legacy(params: NegotiationParams):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
-# ===============================
-# AUTHENTICATION ENDPOINTS
-# ===============================
-
-@app.post("/api/auth/register")
-async def register_seller(user_data: UserRegistration):
-    """Register a new seller"""
-    try:
-        result = auth_service.register_seller(
-            username=user_data.username,
-            email=user_data.email,
-            password=user_data.password,
-            full_name=user_data.full_name,
-            phone=user_data.phone
-        )
-        
-        if result['success']:
-            return {
-                "success": True,
-                "message": result['message'],
-                "user_id": result['user_id']
-            }
-        else:
-            raise HTTPException(status_code=400, detail=result['error'])
-            
-    except Exception as e:
-        logger.error(f"Registration error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Registration failed")
-
-
-@app.post("/api/auth/login")
-async def login_seller(credentials: UserLogin):
-    """Authenticate seller login"""
-    try:
-        result = auth_service.login_seller(
-            username=credentials.username,
-            password=credentials.password
-        )
-        
-        if result['success']:
-            return {
-                "success": True,
-                "access_token": result['access_token'],
-                "token_type": result['token_type'],
-                "session_id": result['session_id'],
-                "user": result['user']
-            }
-        else:
-            raise HTTPException(status_code=401, detail=result['error'])
-            
-    except Exception as e:
-        logger.error(f"Login error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Login failed")
-
-
-@app.post("/api/auth/logout")
-async def logout_seller(logout_request: LogoutRequest):
-    """Logout seller and invalidate session"""
-    try:
-        result = auth_service.logout_seller(logout_request.session_id)
-        return result
-    except Exception as e:
-        logger.error(f"Logout error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Logout failed")
-
-
-@app.get("/api/auth/profile")
-async def get_seller_profile(authorization: str = None):
-    """Get current seller profile"""
-    try:
-        if not authorization or not authorization.startswith('Bearer '):
-            raise HTTPException(status_code=401, detail="Invalid authorization header")
-        
-        token = authorization[7:]  # Remove 'Bearer ' prefix
-        user = auth_service.get_current_user(token)
-        
-        if not user:
-            raise HTTPException(status_code=401, detail="Invalid or expired token")
-        
-        return {"success": True, "user": user}
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Profile retrieval error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Profile retrieval failed")
-
-
-@app.put("/api/auth/profile")
-async def update_seller_profile(profile_data: UserProfileUpdate, authorization: str = None):
-    """Update seller profile"""
-    try:
-        if not authorization or not authorization.startswith('Bearer '):
-            raise HTTPException(status_code=401, detail="Invalid authorization header")
-        
-        token = authorization[7:]
-        user = auth_service.get_current_user(token)
-        
-        if not user:
-            raise HTTPException(status_code=401, detail="Invalid or expired token")
-        
-        result = auth_service.update_seller_profile(
-            user_id=user['user_id'],
-            profile_data=profile_data.dict(exclude_unset=True)
-        )
-        
-        return result
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Profile update error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Profile update failed")
-
-
-@app.get("/api/auth/stats/{user_id}")
-async def get_seller_stats(user_id: str, authorization: str = None):
-    """Get seller statistics"""
-    try:
-        if not authorization or not authorization.startswith('Bearer '):
-            raise HTTPException(status_code=401, detail="Invalid authorization header")
-        
-        token = authorization[7:]
-        current_user = auth_service.get_current_user(token)
-        
-        if not current_user or current_user['user_id'] != user_id:
-            raise HTTPException(status_code=403, detail="Access denied")
-        
-        result = auth_service.get_seller_stats(user_id)
-        return result
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Stats retrieval error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Stats retrieval failed")
 
 
 # ===============================

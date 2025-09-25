@@ -133,5 +133,25 @@
     ],
     "posted_date": "2025-09-18T16:30:00Z",
     "is_available": true
+  },
+  {
+    "id": "scraped_e4afd7b1-654c-420d-b76e-dc01faf857d5",
+    "title": "Iphone 16 -128 gb / Ultramarine / 6 months warranty remaining",
+    "description": "Product description not available",
+    "price": 50000,
+    "original_price": 50000,
+    "seller_name": "Unknown",
+    "seller_contact": "",
+    "location": "Arumbakkam, Chennai, Tamil Nadu",
+    "url": "https://www.olx.in/en-in/item/mobile-phones-c1453-used-iphone-in-arumbakkam-chennai-iid-1821022551",
+    "platform": "OLX",
+    "category": "Mobile Phones",
+    "condition": "Good",
+    "images": [
+      "https://apollo.olx.in:443/v1/files/24tcfxjj996u-IN/image;s=600x1200;q=60"
+    ],
+    "features": [],
+    "posted_date": "2025-09-22T12:52:50.092000",
+    "is_available": true
   }
 ]

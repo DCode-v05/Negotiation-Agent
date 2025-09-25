@@ -43,12 +43,21 @@
             },
             
             login: async (credentials) => {
+                console.log('Login request payload:', credentials);
                 const response = await fetch(`${API_BASE}/api/auth/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(credentials)
                 });
-                return response.json();
+                
+                const result = await response.json();
+                console.log('Login response:', result);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${JSON.stringify(result)}`);
+                }
+                
+                return result;
             },
             
             logout: async (sessionId) => {
@@ -84,7 +93,8 @@
         const LoginForm = ({ onLoginSuccess, onSwitchToRegister }) => {
             const [formData, setFormData] = useState({
                 username: '',
-                password: ''
+                password: '',
+                role: 'seller'
             });
             const [loading, setLoading] = useState(false);
             const [error, setError] = useState('');
@@ -94,18 +104,25 @@
                 setLoading(true);
                 setError('');
 
+                console.log('Form data before submit:', formData);
+
                 try {
                     const result = await apiService.login(formData);
                     if (result.success) {
-                        localStorage.setItem('access_token', result.access_token);
+                        localStorage.setItem('access_token', result.token);
                         localStorage.setItem('session_id', result.session_id);
                         localStorage.setItem('user', JSON.stringify(result.user));
                         onLoginSuccess(result.user);
                     } else {
-                        setError(result.error || 'Login failed');
+                        setError(result.message || 'Login failed');
                     }
                 } catch (err) {
-                    setError('Network error. Please try again.');
+                    console.error('Login error:', err);
+                    if (err.message && err.message.includes('422')) {
+                        setError('Please check all required fields and try again.');
+                    } else {
+                        setError('Network error. Please try again.');
+                    }
                 }
                 setLoading(false);
             };
@@ -162,6 +179,21 @@
                                 </div>
 
                                 <div>
+                                    <label className="block text-sm font-medium text-gray-700">
+                                        User Role
+                                    </label>
+                                    <select
+                                        required
+                                        className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                                        value={formData.role}
+                                        onChange={(e) => setFormData({...formData, role: e.target.value})}
+                                    >
+                                        <option value="buyer">Buyer</option>
+                                        <option value="seller">Seller</option>
+                                    </select>
+                                </div>
+
+                                <div>
                                     <button
                                         type="submit"
                                         disabled={loading}
@@ -203,7 +235,8 @@
                 password: '',
                 confirmPassword: '',
                 full_name: '',
-                phone: ''
+                phone: '',
+                role: 'seller'
             });
             const [loading, setLoading] = useState(false);
             const [error, setError] = useState('');
@@ -226,10 +259,15 @@
                     if (result.success) {
                         onRegistrationSuccess();
                     } else {
-                        setError(result.error || 'Registration failed');
+                        setError(result.message || 'Registration failed');
                     }
                 } catch (err) {
-                    setError('Network error. Please try again.');
+                    console.error('Registration error:', err);
+                    if (err.message && err.message.includes('422')) {
+                        setError('Please check all required fields. Phone must be at least 10 digits.');
+                    } else {
+                        setError('Network error. Please try again.');
+                    }
                 }
                 setLoading(false);
             };
@@ -294,14 +332,28 @@
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">Phone (Optional)</label>
+                                    <label className="block text-sm font-medium text-gray-700">Phone (Required)</label>
                                     <input
                                         type="tel"
+                                        required
                                         className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500"
-                                        placeholder="Enter your phone number"
+                                        placeholder="Enter your phone number (minimum 10 digits)"
                                         value={formData.phone}
                                         onChange={(e) => setFormData({...formData, phone: e.target.value})}
                                     />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">User Role</label>
+                                    <select
+                                        required
+                                        className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                                        value={formData.role}
+                                        onChange={(e) => setFormData({...formData, role: e.target.value})}
+                                    >
+                                        <option value="buyer">Buyer</option>
+                                        <option value="seller">Seller</option>
+                                    </select>
                                 </div>
 
                                 <div>
