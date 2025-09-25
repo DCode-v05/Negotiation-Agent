@@ -25,7 +25,6 @@ python-dateutil
 typing-extensions
 aiofiles
 tenacity
-# LangChain dependencies
 langchain
 langchain-community
 langchain-google-genai
