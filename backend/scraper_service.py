@@ -24,10 +24,10 @@ import json
 from models import Product
 import logging
 
-# Import enhanced scraper - temporarily disabled for testing
+# Import enhanced scraper
 try:
     from enhanced_scraper import EnhancedMarketplaceScraper
-    ENHANCED_SCRAPER_AVAILABLE = False  # Temporarily disabled to use improved legacy scraper
+    ENHANCED_SCRAPER_AVAILABLE = True
 except ImportError:
     ENHANCED_SCRAPER_AVAILABLE = False
     logging.warning("Enhanced scraper not available, using fallback")
@@ -300,13 +300,9 @@ class MarketplaceScraper:
         return True
 
     def _estimate_price_from_context(self, url: str, title: str) -> int:
-        """Estimate price based on URL patterns or title keywords"""
-        # Price patterns in URL
-        price_in_url = re.search(r'(\d{4,})', url)
-        if price_in_url:
-            price = int(price_in_url.group(1))
-            if 1000 <= price <= 10000000:  # Reasonable range
-                return price
+        """Estimate price based on title keywords only - DO NOT extract from URL to avoid IDs"""
+        # REMOVED: URL-based price extraction to prevent ID confusion
+        # The URL contains item IDs which should not be treated as prices
         
         # Price estimation based on product category keywords
         title_lower = title.lower()
@@ -439,27 +435,46 @@ class MarketplaceScraper:
         return any(indicator in title_lower for indicator in category_indicators)
     
     def _extract_olx_price(self, soup: BeautifulSoup) -> int:
-        """Extract price from OLX listing with improved patterns"""
-        selectors = [
-            'span[data-aut-id="itemPrice"]',
-            '[data-testid="ad-price"]',
-            '.notranslate',
+        """Extract price from OLX listing prioritizing rupee symbol"""
+        # PRIORITY 1: OLX-specific price selectors
+        priority_selectors = [
+            'span[data-aut-id="itemPrice"]',      # Primary OLX price selector
+            '[data-testid="ad-price"]',           # Alternative price selector
+            'span.notranslate',                   # Price often in notranslate spans
+        ]
+        
+        # PRIORITY 2: Generic price selectors
+        secondary_selectors = [
             '.price-text',
             '.ad-price',
             '._6eme8',
             '.x-1f6kntn',
-            '.kxOcF'  # Updated selector
+            '.kxOcF',
+            'span[class*="Price"]',               # Any span with "Price" in class
+            'div[class*="price"]',                # Any div with "price" in class
         ]
         
-        # Try specific selectors first
-        for selector in selectors:
+        # PRIORITY 1: Try OLX-specific selectors first
+        for selector in priority_selectors:
             elements = soup.select(selector)
             for element in elements:
                 price_text = element.get_text(strip=True)
-                price = self._parse_price(price_text)
-                if price > 0:
-                    logger.info(f"Found price with selector '{selector}': ₹{price}")
-                    return price
+                if price_text and ('₹' in price_text or 'Rs' in price_text):
+                    price = self._parse_price(price_text)
+                    if price > 0:
+                        logger.info(f"OLX price found via priority selector {selector}: ₹{price}")
+                        return price
+        
+        # PRIORITY 2: Try secondary selectors
+        for selector in secondary_selectors:
+            elements = soup.select(selector)
+            for element in elements:
+                price_text = element.get_text(strip=True)
+                if price_text:
+                    price = self._parse_price(price_text)
+                    if price > 0:
+                        logger.info(f"OLX price found via secondary selector {selector}: ₹{price}")
+                        return price
         
         # Search for price in structured data (JSON-LD)
         json_scripts = soup.find_all('script', type='application/ld+json')
@@ -488,28 +503,86 @@ class MarketplaceScraper:
         return 0
 
     def _parse_price(self, text: str) -> int:
-        """Parse price from text with various formats"""
+        """Parse price from text with Indian Rupee symbol priority"""
         if not text:
             return 0
             
-        # Remove common non-price text
+        # Remove common non-price text but preserve rupee symbols
         text = re.sub(r'(per|month|year|day|week)', '', text, flags=re.IGNORECASE)
         
-        # Price patterns to try
-        patterns = [
-            r'₹[\s,]*(\d+(?:,\d+)*)',  # ₹50,000
-            r'Rs\.?[\s,]*(\d+(?:,\d+)*)',  # Rs.50000 or Rs. 50,000
-            r'INR[\s,]*(\d+(?:,\d+)*)',  # INR 50000
-            r'(\d{3,}(?:,\d+)*)',  # Just numbers 50000 or 50,000
+        # PRIORITY 1: Indian Rupee symbol patterns (₹)
+        rupee_patterns = [
+            r'₹\s*(\d+(?:,\d+)*(?:\.\d+)?)',      # ₹50,000 or ₹50000.00
+            r'₹\s*(\d+(?:\.\d+)?)\s*(?:lakh|lac)', # ₹5.5 lakh
+            r'₹\s*(\d+(?:\.\d+)?)\s*(?:crore)',    # ₹1.2 crore
         ]
         
-        for pattern in patterns:
-            matches = re.findall(pattern, text)
+        for pattern in rupee_patterns:
+            matches = re.findall(pattern, text, re.IGNORECASE)
+            for match in matches:
+                try:
+                    price_str = match.replace(',', '')
+                    price = float(price_str)
+                    
+                    # Handle lakh/crore multipliers
+                    if 'lakh' in text.lower() or 'lac' in text.lower():
+                        price = int(price * 100000)  # 1 lakh = 1,00,000
+                    elif 'crore' in text.lower():
+                        price = int(price * 10000000)  # 1 crore = 1,00,00,000
+                    else:
+                        price = int(price)
+                    
+                    # Reasonable price range check for Indian market
+                    if 50 <= price <= 50000000:  # ₹50 to ₹5 crore
+                        logger.info(f"Found price with ₹ symbol: ₹{price:,}")
+                        return price
+                except (ValueError, TypeError):
+                    continue
+        
+        # PRIORITY 2: Alternative Indian currency formats
+        alt_patterns = [
+            r'Rs\.?\s*(\d+(?:,\d+)*)',            # Rs.50000 or Rs. 50,000
+            r'INR\s*(\d+(?:,\d+)*)',              # INR 50000
+            r'rupees?\s*(\d+(?:,\d+)*)',          # rupees 50000
+            r'(\d+(?:\.\d+)?)\s*lakh',            # 5 lakh or 5.5 lakh
+            r'(\d+(?:\.\d+)?)\s*crore',           # 2 crore or 2.5 crore
+        ]
+        
+        for pattern in alt_patterns:
+            matches = re.findall(pattern, text, re.IGNORECASE)
+            for match in matches:
+                try:
+                    # Handle lakh/crore conversion
+                    if 'lakh' in pattern:
+                        price = int(float(match) * 100000)  # Convert lakh to number
+                        logger.info(f"Found price in lakh: ₹{price:,}")
+                    elif 'crore' in pattern:
+                        price = int(float(match) * 10000000)  # Convert crore to number
+                        logger.info(f"Found price in crore: ₹{price:,}")
+                    else:
+                        price = int(match.replace(',', ''))
+                        logger.info(f"Found price with Rs/INR: ₹{price:,}")
+                    
+                    if 50 <= price <= 50000000:
+                        return price
+                except ValueError:
+                    continue
+        
+        # PRIORITY 3: Numbers only (be more selective to avoid IDs)
+        # Only consider numbers that appear in price-like contexts
+        number_patterns = [
+            r'(?:price|cost|amount|value|worth)[\s:]*(\d{3,}(?:,\d+)*)',  # "Price: 50000"
+            r'(\d{3,}(?:,\d+)*)\s*(?:only|/-|/\-)',                      # "50000 only" or "50000/-"
+        ]
+        
+        for pattern in number_patterns:
+            matches = re.findall(pattern, text, re.IGNORECASE)
             for match in matches:
                 try:
                     price = int(match.replace(',', ''))
-                    # Reasonable price range check
-                    if 100 <= price <= 10000000:  # ₹100 to ₹1 crore
+                    # More restrictive range for bare numbers
+                    if 500 <= price <= 10000000:
+                        logger.info(f"Found price from context: ₹{price:,}")
                         return price
                 except ValueError:
                     continue
