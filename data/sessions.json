@@ -25,5 +25,32 @@
     ],
     "final_price": null,
     "outcome": null
+  },
+  {
+    "id": "fc45ccc1-4534-456f-ab15-11d256dda02c",
+    "product_id": "scraped_fc45ccc1-4534-456f-ab15-11d256dda02c",
+    "user_params": {
+      "product_id": "",
+      "target_price": 40000,
+      "max_budget": 45000,
+      "approach": "diplomatic",
+      "timeline": "flexible",
+      "special_requirements": null
+    },
+    "status": "active",
+    "created_at": "2025-09-25T14:02:18.795443",
+    "ended_at": null,
+    "messages": [
+      {
+        "id": "699795d0-0e18-41f8-b805-b60cf4f1631a",
+        "session_id": "fc45ccc1-4534-456f-ab15-11d256dda02c",
+        "sender": "ai",
+        "content": "I understand your position, but ₹45,000 is really the maximum I can go. If you change your mind, please let me know. Otherwise, I'll have to consider other options. Thank you for your time.",
+        "timestamp": "2025-09-25T14:02:20.799960",
+        "sender_type": "ai"
+      }
+    ],
+    "final_price": null,
+    "outcome": null
   }
 ]

@@ -1,6 +1,6 @@
 """
-Enhanced AI Service - Simplified Version
-Combines negotiation engine with MCP integration and Gemini fallback
+Enhanced AI Service - Now with LangChain Integration
+Combines negotiation engine with LangChain AI agent, MCP integration and Gemini fallback
 """
 
 import os
@@ -19,6 +19,7 @@ from negotiation_engine import AdvancedNegotiationEngine
 from scraper_service import MarketplaceScraper
 # from mcp_integration import JSONContextManager, NegotiationContext  # Temporarily disabled
 from gemini_service import GeminiOnlyService
+from langchain_agent import LangChainNegotiationAgent, NegotiationContext as LangChainContext
 
 logger = logging.getLogger(__name__)
 
@@ -49,8 +50,8 @@ class NegotiationResponse(BaseModel):
 class EnhancedAIService:
     """Enhanced AI service combining traditional negotiation engine with MCP and Gemini"""
     
-    def __init__(self, use_langchain: bool = False, use_mcp: bool = False):
-        self.use_langchain = use_langchain  # Disabled for now due to version issues
+    def __init__(self, use_langchain: bool = True, use_mcp: bool = False):
+        self.use_langchain = use_langchain  # Now enabled with proper integration
         self.use_mcp = use_mcp
         self.langchain_agent = None
         self.mcp_context_manager = None
@@ -64,10 +65,22 @@ class EnhancedAIService:
     def initialize_services(self):
         """Initialize AI services"""
         try:
-            # Temporarily disable LangChain due to version compatibility
-            logger.info("LangChain temporarily disabled due to version compatibility")
-            self.use_langchain = False
-            self.langchain_agent = None
+            # Initialize LangChain agent
+            if self.use_langchain:
+                try:
+                    google_api_key = os.getenv("GOOGLE_API_KEY")
+                    if google_api_key:
+                        self.langchain_agent = LangChainNegotiationAgent(google_api_key)
+                        logger.info("✅ LangChain negotiation agent initialized successfully")
+                    else:
+                        logger.warning("Google API key not found, disabling LangChain")
+                        self.use_langchain = False
+                        self.langchain_agent = None
+                except Exception as e:
+                    logger.error(f"LangChain initialization error: {e}")
+                    logger.info("Falling back to Gemini-only service")
+                    self.use_langchain = False
+                    self.langchain_agent = None
             
             # MCP temporarily disabled
             self.use_mcp = False
@@ -100,7 +113,38 @@ class EnhancedAIService:
                 session_data, seller_message, chat_history, product
             )
             
-            # Step 2: Get MCP-enhanced insights - temporarily disabled
+            # Step 2: Try LangChain agent first (highest priority)
+            if self.use_langchain and self.langchain_agent:
+                try:
+                    # Convert context to LangChain format
+                    langchain_context = LangChainContext(
+                        product=product,
+                        target_price=context.target_price,
+                        max_budget=context.max_budget,
+                        current_offer=session_data.get("last_offer"),
+                        seller_messages=context.seller_messages,
+                        chat_history=context.chat_history,
+                        market_data=context.market_data,
+                        session_data=context.session_data,
+                        negotiation_phase=context.negotiation_phase
+                    )
+                    
+                    langchain_decision = await self.langchain_agent.generate_negotiation_response(
+                        langchain_context
+                    )
+                    
+                    if langchain_decision and langchain_decision.get("confidence", 0) > 0.6:
+                        logger.info("🚀 Using LangChain agent decision")
+                        self._log_decision(langchain_decision, session_data)
+                        return langchain_decision
+                    else:
+                        logger.info("LangChain confidence low, falling back to engine")
+                        
+                except Exception as e:
+                    logger.error(f"LangChain agent error: {e}")
+                    logger.info("Falling back to traditional engine")
+            
+            # Step 3: Get MCP-enhanced insights - temporarily disabled
             mcp_insights = None
             # if self.use_mcp and self.mcp_context_manager:
             #     try:
@@ -110,12 +154,12 @@ class EnhancedAIService:
             #         logger.error(f"MCP insights error: {e}")
             #         mcp_insights = None
             
-            # Step 3: Get decision from traditional negotiation engine
+            # Step 4: Get decision from traditional negotiation engine
             engine_decision = await self.negotiation_engine.make_decision(
                 session_data, seller_message, chat_history, product
             )
             
-            # Step 4: Enhance with Gemini if available
+            # Step 5: Enhance with Gemini if available
             if os.getenv("GEMINI_API_KEY"):
                 try:
                     gemini_enhancement = await self._get_gemini_enhancement(
@@ -128,10 +172,10 @@ class EnhancedAIService:
                 except Exception as e:
                     logger.error(f"Gemini enhancement error: {e}")
             
-            # Step 5: Combine with MCP insights
+            # Step 6: Combine with MCP insights
             final_decision = self._combine_with_mcp(engine_decision, mcp_insights)
             
-            # Step 6: Log decision for learning
+            # Step 7: Log decision for learning
             self._log_decision(final_decision, session_data)
             
             return final_decision
@@ -393,6 +437,46 @@ class EnhancedAIService:
             
         except Exception as e:
             logger.error(f"Error logging decision: {e}")
+
+    def get_service_status(self) -> Dict[str, Any]:
+        """Get comprehensive status of all AI services"""
+        try:
+            status = {
+                "enhanced_ai_service": "active",
+                "langchain_agent": "active" if self.use_langchain and self.langchain_agent else "disabled",
+                "mcp_integration": "active" if self.use_mcp else "disabled", 
+                "gemini_fallback": "active",
+                "negotiation_engine": "active",
+                "scraper_service": "active",
+                "services": {
+                    "langchain": {
+                        "enabled": self.use_langchain,
+                        "initialized": self.langchain_agent is not None,
+                        "tools": ["market_analysis", "price_calculator", "negotiation_strategy"] if self.langchain_agent else []
+                    },
+                    "mcp": {
+                        "enabled": self.use_mcp,
+                        "initialized": self.mcp_context_manager is not None
+                    },
+                    "gemini": {
+                        "enabled": True,
+                        "initialized": self.gemini_service is not None
+                    },
+                    "negotiation_engine": {
+                        "enabled": True,
+                        "initialized": self.negotiation_engine is not None
+                    }
+                }
+            }
+            
+            return status
+            
+        except Exception as e:
+            logger.error(f"Error getting service status: {e}")
+            return {
+                "enhanced_ai_service": "error",
+                "error": str(e)
+            }
 
 
 # Helper function for backwards compatibility

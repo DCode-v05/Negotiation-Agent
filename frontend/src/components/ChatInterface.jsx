@@ -33,21 +33,25 @@ const ChatInterface = () => {
 
   const EmptyState = () => (
     <div className="flex-1 flex items-center justify-center p-8">
-      <div className="text-center max-w-md">
-        <div className="w-24 h-24 bg-gradient-to-br from-primary-100 to-primary-200 rounded-full flex items-center justify-center mx-auto mb-6">
-          <MessageCircle className="w-12 h-12 text-primary-600" />
-        </div>
-        <h3 className="text-xl font-semibold text-gray-900 mb-3">
-          Ready to Start Negotiating
+      <div className="text-center max-w-lg">
+        <motion.div 
+          className="w-28 h-28 bg-gradient-to-br from-primary-500 to-accent-500 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-2xl"
+          whileHover={{ rotate: 5, scale: 1.05 }}
+          transition={{ type: "spring", stiffness: 300 }}
+        >
+          <MessageCircle className="w-14 h-14 text-white" />
+        </motion.div>
+        <h3 className="text-3xl font-bold text-gradient-violet mb-4">
+          Ready to Negotiate Smarter
         </h3>
-        <p className="text-gray-600 leading-relaxed mb-6">
-          Configure your negotiation parameters in the sidebar and start your AI-powered 
-          marketplace negotiation session. Get better deals with intelligent strategies.
+        <p className="text-gray-300 leading-relaxed mb-8 text-lg">
+          Configure your AI negotiation assistant and start getting better deals with 
+          intelligent market analysis and automated negotiation strategies.
         </p>
-        <div className="flex items-center justify-center gap-6 text-sm text-gray-500">
-          <div className="flex items-center gap-2">
-            <Bot className="w-4 h-4 text-blue-500" />
-            <span>AI Assistant</span>
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="glass-card p-4">
+            <Bot className="w-6 h-6 text-primary-400 mx-auto mb-2" />
+            <span className="text-gray-300 font-medium">AI Assistant</span>
           </div>
           <div className="flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-green-500" />

@@ -651,18 +651,19 @@ class MarketIntelligence:
         Perform comprehensive product analysis including market intelligence,
         negotiation points, and strategic recommendations
         """
+        # Validate product_data input first, outside try-catch
+        if not product_data or not isinstance(product_data, dict):
+            logger.warning("Invalid product_data provided for comprehensive analysis")
+            product_data = {
+                'title': 'Unknown Product',
+                'price': user_budget if user_budget > 0 else 10000,
+                'category': 'Other',
+                'condition': 'Good',
+                'location': 'Unknown',
+                'description': 'Product description not available'
+            }
+        
         try:
-            # Validate product_data input
-            if not product_data or not isinstance(product_data, dict):
-                logger.warning("Invalid product_data provided for comprehensive analysis")
-                product_data = {
-                    'title': 'Unknown Product',
-                    'price': user_budget if user_budget > 0 else 10000,
-                    'category': 'Other',
-                    'condition': 'Good',
-                    'location': 'Unknown',
-                    'description': 'Product description not available'
-                }
             
             title = product_data.get('title', 'Unknown Product')
             price = product_data.get('price', user_budget if user_budget > 0 else 10000)

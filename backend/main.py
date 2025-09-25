@@ -104,9 +104,10 @@ async def lifespan(app: FastAPI):
         logger.warning(f"MCP server initialization failed: {e}")
     
     logger.info("INFO: NegotiBot AI Enhanced Backend started successfully!")
-    logger.info("INFO: - LangChain Agent: Enabled")
-    logger.info("INFO: - MCP Integration: Enabled") 
-    logger.info("INFO: - Gemini Fallback: Available")
+    logger.info("INFO: - 🚀 LangChain Agent: Fully Integrated & Active")
+    logger.info("INFO: - 🔧 MCP Integration: Available (Currently Disabled)") 
+    logger.info("INFO: - 🤖 Gemini Fallback: Available")
+    logger.info("INFO: - 🛠️ Advanced Negotiation Tools: Market Analysis, Price Calculator, Strategy Advisor")
     yield
     # Shutdown (if needed)
     pass
@@ -181,7 +182,7 @@ market_intelligence = MarketIntelligence()
 auth_service = AuthenticationService()
 
 # Initialize enhanced AI services with LangChain + MCP
-enhanced_ai_service = EnhancedAIService()
+enhanced_ai_service = EnhancedAIService(use_langchain=True, use_mcp=False)
 mcp_server = None
 
 # Update session manager with enhanced AI service
@@ -257,7 +258,7 @@ async def health_check():
         
         # Test AI services
         ai_available = ai_service.model is not None
-        ai_status = intelligent_ai_service.get_service_status()
+        ai_status = enhanced_ai_service.get_service_status()
         
         return {
             "status": "healthy",
@@ -273,7 +274,7 @@ async def health_check():
 @app.get("/api/ai/status")
 async def ai_service_status():
     """Detailed AI service status and performance metrics"""
-    return intelligent_ai_service.get_service_status()
+    return enhanced_ai_service.get_service_status()
 
 
 # ===== ROOT AND UTILITY ENDPOINTS =====
