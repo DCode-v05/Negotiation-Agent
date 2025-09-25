@@ -2,6 +2,17 @@ from fastapi import WebSocket, WebSocketDisconnect
 from typing import Dict, Optional
 import json
 import asyncio
+from enum import Enum
+from datetime import datetime
+
+class CustomJSONEncoder(json.JSONEncoder):
+    """Custom JSON encoder to handle Enum and datetime objects"""
+    def default(self, obj):
+        if isinstance(obj, Enum):
+            return obj.value
+        elif isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
 
 
 class ConnectionManager:
@@ -65,7 +76,7 @@ class ConnectionManager:
         if session_id in self.user_connections:
             try:
                 websocket = self.user_connections[session_id]
-                await websocket.send_text(json.dumps(message))
+                await websocket.send_text(json.dumps(message, cls=CustomJSONEncoder))
             except Exception as e:
                 print(f"Error sending message to user {session_id}: {e}")
                 self.disconnect_user(session_id)
@@ -75,7 +86,7 @@ class ConnectionManager:
         if session_id in self.seller_connections:
             try:
                 websocket = self.seller_connections[session_id]
-                await websocket.send_text(json.dumps(message))
+                await websocket.send_text(json.dumps(message, cls=CustomJSONEncoder))
             except Exception as e:
                 print(f"Error sending message to seller {session_id}: {e}")
                 self.disconnect_seller(session_id)

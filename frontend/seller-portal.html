@@ -89,6 +89,287 @@
             }
         };
 
+        // Session Chat Interface Component
+        const SessionChatInterface = () => {
+            const [sessionId, setSessionId] = useState('');
+            const [connected, setConnected] = useState(false);
+            const [messages, setMessages] = useState([]);
+            const [currentMessage, setCurrentMessage] = useState('');
+            const [ws, setWs] = useState(null);
+            const [connectionStatus, setConnectionStatus] = useState('disconnected');
+            const [sessionDetails, setSessionDetails] = useState(null);
+            const [loadingDetails, setLoadingDetails] = useState(false);
+
+            const loadSessionDetails = async (sessionId) => {
+                setLoadingDetails(true);
+                try {
+                    const response = await fetch(`/api/session/${sessionId}/details`);
+                    if (response.ok) {
+                        const details = await response.json();
+                        setSessionDetails(details);
+                        console.log('Session details loaded:', details);
+                    } else {
+                        console.error('Failed to load session details');
+                        setSessionDetails(null);
+                    }
+                } catch (error) {
+                    console.error('Error loading session details:', error);
+                    setSessionDetails(null);
+                } finally {
+                    setLoadingDetails(false);
+                }
+            };
+
+            const connectToSession = () => {
+                if (!sessionId.trim()) {
+                    alert('Please enter a valid session ID');
+                    return;
+                }
+
+                try {
+                    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                    const wsUrl = `${protocol}//${window.location.host}/ws/seller/${sessionId}`;
+                    console.log('Connecting to WebSocket:', wsUrl);
+                    const websocket = new WebSocket(wsUrl);
+                    
+                    websocket.onopen = () => {
+                        setConnected(true);
+                        setConnectionStatus('connected');
+                        setWs(websocket);
+                        setMessages(prev => [...prev, {
+                            type: 'system',
+                            content: `Connected to session ${sessionId}`,
+                            timestamp: new Date().toLocaleTimeString()
+                        }]);
+                        // Load session details when connected
+                        loadSessionDetails(sessionId);
+                    };
+
+                    websocket.onmessage = (event) => {
+                        const data = JSON.parse(event.data);
+                        setMessages(prev => [...prev, {
+                            type: data.type || 'buyer',
+                            sender: data.sender || 'Buyer',
+                            content: data.message || data.content,
+                            timestamp: new Date().toLocaleTimeString()
+                        }]);
+                    };
+
+                    websocket.onclose = () => {
+                        setConnected(false);
+                        setConnectionStatus('disconnected');
+                        setMessages(prev => [...prev, {
+                            type: 'system',
+                            content: 'Disconnected from session',
+                            timestamp: new Date().toLocaleTimeString()
+                        }]);
+                    };
+
+                    websocket.onerror = (error) => {
+                        console.error('WebSocket error:', error);
+                        console.error('WebSocket URL was:', wsUrl);
+                        console.error('Session ID:', sessionId);
+                        setConnectionStatus('error');
+                        setMessages(prev => [...prev, {
+                            type: 'system',
+                            content: `Connection error. Check console for details. URL: ${wsUrl}`,
+                            timestamp: new Date().toLocaleTimeString()
+                        }]);
+                    };
+
+                } catch (error) {
+                    console.error('Failed to connect:', error);
+                    alert('Failed to connect to session. Please check the session ID.');
+                }
+            };
+
+            const disconnectFromSession = () => {
+                if (ws) {
+                    ws.close();
+                    setWs(null);
+                }
+                setConnected(false);
+                setConnectionStatus('disconnected');
+                setMessages([]);
+            };
+
+            const sendMessage = () => {
+                if (!currentMessage.trim() || !ws || !connected) return;
+
+                const messageData = {
+                    type: 'message',
+                    content: currentMessage,
+                    session_id: sessionId
+                };
+
+                ws.send(JSON.stringify(messageData));
+                
+                // Add to local messages
+                setMessages(prev => [...prev, {
+                    type: 'seller',
+                    sender: 'You',
+                    content: currentMessage,
+                    timestamp: new Date().toLocaleTimeString()
+                }]);
+
+                setCurrentMessage('');
+            };
+
+            const handleKeyPress = (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            };
+
+            return (
+                <div className="space-y-4">
+                    {/* Session Connection Panel */}
+                    <div className="flex space-x-3">
+                        <div className="flex-1">
+                            <input
+                                type="text"
+                                placeholder="Enter Session ID (e.g., abc123-def456-ghi789)"
+                                value={sessionId}
+                                onChange={(e) => setSessionId(e.target.value)}
+                                disabled={connected}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100"
+                            />
+                        </div>
+                        {!connected ? (
+                            <button
+                                onClick={connectToSession}
+                                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium"
+                            >
+                                <i className="fas fa-plug mr-2"></i>
+                                Connect
+                            </button>
+                        ) : (
+                            <button
+                                onClick={disconnectFromSession}
+                                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-medium"
+                            >
+                                <i className="fas fa-times mr-2"></i>
+                                Disconnect
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Connection Status */}
+                    <div className="flex items-center space-x-2">
+                        <div className={`w-3 h-3 rounded-full ${
+                            connectionStatus === 'connected' ? 'bg-green-500' : 
+                            connectionStatus === 'error' ? 'bg-red-500' : 'bg-gray-400'
+                        }`}></div>
+                        <span className="text-sm text-gray-600">
+                            {connectionStatus === 'connected' ? `Connected to ${sessionId}` :
+                             connectionStatus === 'error' ? 'Connection Error' : 'Not Connected'}
+                        </span>
+                    </div>
+
+                    {/* Session Details */}
+                    {connected && sessionDetails && (
+                        <div className="border rounded-lg bg-blue-50 p-4">
+                            <h3 className="font-semibold text-blue-800 mb-3">
+                                <i className="fas fa-info-circle mr-2"></i>
+                                Negotiation Details
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <strong>Product:</strong> {sessionDetails.product_details?.title || 'Unknown'}
+                                </div>
+                                <div>
+                                    <strong>Listed Price:</strong> ₹{sessionDetails.product_details?.price?.toLocaleString() || '0'}
+                                </div>
+                                <div>
+                                    <strong>Buyer Target:</strong> ₹{sessionDetails.target_price?.toLocaleString() || 'Not specified'}
+                                </div>
+                                <div>
+                                    <strong>Max Budget:</strong> ₹{sessionDetails.max_budget?.toLocaleString() || 'Not specified'}
+                                </div>
+                                {sessionDetails.product_details?.condition && (
+                                    <div>
+                                        <strong>Condition:</strong> {sessionDetails.product_details.condition}
+                                    </div>
+                                )}
+                                {sessionDetails.product_details?.location && (
+                                    <div>
+                                        <strong>Location:</strong> {sessionDetails.product_details.location}
+                                    </div>
+                                )}
+                            </div>
+                            {sessionDetails.product_details?.description && (
+                                <div className="mt-3">
+                                    <strong>Description:</strong>
+                                    <p className="text-gray-600 mt-1">{sessionDetails.product_details.description}</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {loadingDetails && (
+                        <div className="border rounded-lg bg-gray-50 p-4 text-center">
+                            <i className="fas fa-spinner fa-spin mr-2"></i>
+                            Loading session details...
+                        </div>
+                    )}
+
+                    {/* Chat Messages */}
+                    {connected && (
+                        <div className="border rounded-lg bg-gray-50">
+                            <div className="h-80 overflow-y-auto p-4 space-y-3">
+                                {messages.length === 0 ? (
+                                    <div className="text-center text-gray-500 text-sm">
+                                        Waiting for messages...
+                                    </div>
+                                ) : (
+                                    messages.map((message, index) => (
+                                        <div key={index} className={`flex ${
+                                            message.type === 'seller' ? 'justify-end' : 'justify-start'
+                                        }`}>
+                                            <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                                                message.type === 'seller' 
+                                                    ? 'bg-purple-600 text-white'
+                                                    : message.type === 'system'
+                                                    ? 'bg-yellow-100 text-yellow-800'
+                                                    : 'bg-white text-gray-800 border'
+                                            }`}>
+                                                <div className="text-xs opacity-75 mb-1">
+                                                    {message.sender} • {message.timestamp}
+                                                </div>
+                                                <div>{message.content}</div>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                            
+                            {/* Message Input */}
+                            <div className="border-t p-4">
+                                <div className="flex space-x-3">
+                                    <input
+                                        type="text"
+                                        placeholder="Type your message..."
+                                        value={currentMessage}
+                                        onChange={(e) => setCurrentMessage(e.target.value)}
+                                        onKeyPress={handleKeyPress}
+                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                    />
+                                    <button
+                                        onClick={sendMessage}
+                                        disabled={!currentMessage.trim()}
+                                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <i className="fas fa-paper-plane"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
         // Login Component
         const LoginForm = ({ onLoginSuccess, onSwitchToRegister }) => {
             const [formData, setFormData] = useState({
@@ -502,6 +783,20 @@
                         </div>
                     </div>
 
+                    {/* Session ID Chat Interface */}
+                    <div className="bg-white rounded-lg p-6 shadow-sm border mb-6">
+                        <h3 className="text-lg font-medium text-gray-900 mb-4">
+                            <i className="fas fa-comments mr-2"></i>
+                            Chat with Buyers
+                        </h3>
+                        <p className="text-gray-600 mb-4">
+                            Enter a session ID to communicate directly with buyers negotiating for your products.
+                        </p>
+                        
+                        <SessionChatInterface />
+                    </div>
+
+                    {/* Dashboard Overview */}
                     <div className="bg-white rounded-lg p-6 shadow-sm border">
                         <h3 className="text-lg font-medium text-gray-900 mb-4">Welcome to Your Seller Dashboard!</h3>
                         <p className="text-gray-600 mb-4">
@@ -517,7 +812,7 @@
                                         Getting Started
                                     </h3>
                                     <div className="mt-2 text-sm text-blue-700">
-                                        <p>Complete your profile and start listing products to begin receiving AI-powered negotiations!</p>
+                                        <p>Use the session ID provided by buyers to chat and negotiate directly!</p>
                                     </div>
                                 </div>
                             </div>
@@ -660,7 +955,14 @@
             );
         };
 
-        ReactDOM.render(<SellerPortalApp />, document.getElementById('root'));
+        // React 18 compatible rendering
+        const root = ReactDOM.createRoot ? ReactDOM.createRoot(document.getElementById('root')) : null;
+        if (root) {
+            root.render(<SellerPortalApp />);
+        } else {
+            // Fallback for older React versions
+            ReactDOM.render(<SellerPortalApp />, document.getElementById('root'));
+        }
     </script>
 </body>
 </html>

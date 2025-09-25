@@ -155,7 +155,7 @@ class EnhancedAIService:
             #         mcp_insights = None
             
             # Step 4: Get decision from traditional negotiation engine
-            engine_decision = await self.negotiation_engine.make_decision(
+            engine_decision = await self.negotiation_engine.process_negotiation_turn(
                 session_data, seller_message, chat_history, product
             )
             
@@ -195,16 +195,17 @@ class EnhancedAIService:
         
         # Extract user parameters
         user_params = session_data.get("user_params", {})
-        target_price = user_params.get("target_price", product.get("price", 0) * 0.8)
-        max_budget = user_params.get("max_budget", product.get("price", 0))
+        product_price = product.price if hasattr(product, 'price') else 0
+        target_price = user_params.get("target_price", product_price * 0.8)
+        max_budget = user_params.get("max_budget", product_price)
         
         # Get market data
         market_data = session_data.get("market_analysis", {})
         if not market_data:
             # Basic market data if not available
             market_data = {
-                "average_price": product.get("price", 0) * 0.9,
-                "price_range": {"min": product.get("price", 0) * 0.7, "max": product.get("price", 0) * 1.2},
+                "average_price": product_price * 0.9,
+                "price_range": {"min": product_price * 0.7, "max": product_price * 1.2},
                 "market_trend": "stable"
             }
         
@@ -212,7 +213,7 @@ class EnhancedAIService:
         negotiation_phase = self._determine_phase(chat_history, seller_message)
         
         # Analyze seller messages
-        seller_messages = [msg.get("content", "") for msg in chat_history if msg.get("sender") == "seller"]
+        seller_messages = [msg.content for msg in chat_history if msg.sender == "seller"]
         if seller_message:
             seller_messages.append(seller_message)
         
@@ -254,11 +255,13 @@ class EnhancedAIService:
         
         try:
             # Create prompt for Gemini
+            product_name = context.product.title if hasattr(context.product, 'title') else 'Unknown'
+            product_price = context.product.price if hasattr(context.product, 'price') else 0
             prompt = f"""
             You are an expert negotiation advisor. Analyze this negotiation situation and enhance the proposed response:
             
-            Product: {context.product.get('name', 'Unknown')}
-            Current Price: ${context.product.get('price', 0)}
+            Product: {product_name}
+            Current Price: ${product_price}
             Target Price: ${context.target_price}
             Max Budget: ${context.max_budget}
             Negotiation Phase: {context.negotiation_phase}
@@ -365,7 +368,7 @@ class EnhancedAIService:
         
         try:
             # Use the traditional negotiation engine
-            decision = await self.negotiation_engine.make_decision(
+            decision = await self.negotiation_engine.process_negotiation_turn(
                 session_data, seller_message, chat_history, product
             )
             
@@ -394,7 +397,7 @@ class EnhancedAIService:
                 "next_steps": ["await_seller_response"]
             }
     
-    def _determine_phase(self, chat_history: List[Dict[str, Any]], current_message: str) -> str:
+    def _determine_phase(self, chat_history: List[Any], current_message: str) -> str:
         """Determine the current phase of negotiation"""
         
         if not chat_history:
@@ -403,7 +406,7 @@ class EnhancedAIService:
         message_count = len(chat_history)
         
         # Look for key phrases in recent messages
-        recent_messages = [msg.get("content", "").lower() for msg in chat_history[-3:]]
+        recent_messages = [msg.content.lower() if hasattr(msg, 'content') else str(msg).lower() for msg in chat_history[-3:]]
         recent_messages.append(current_message.lower() if current_message else "")
         
         combined_recent = " ".join(recent_messages)

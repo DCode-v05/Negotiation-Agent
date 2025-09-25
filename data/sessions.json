@@ -52,5 +52,296 @@
     ],
     "final_price": null,
     "outcome": null
+  },
+  {
+    "id": "ffaa6a39-a7ae-4b4e-9164-67283ec69ed0",
+    "product_id": "scraped_ffaa6a39-a7ae-4b4e-9164-67283ec69ed0",
+    "user_params": {
+      "product_id": "",
+      "target_price": 40000,
+      "max_budget": 45000,
+      "approach": "diplomatic",
+      "timeline": "flexible",
+      "special_requirements": null
+    },
+    "status": "active",
+    "created_at": "2025-09-25T14:32:38.361376",
+    "ended_at": null,
+    "messages": [
+      {
+        "id": "bb671e65-782b-45c9-9e7e-1b951bf56cf1",
+        "session_id": "ffaa6a39-a7ae-4b4e-9164-67283ec69ed0",
+        "sender": "ai",
+        "content": "I understand your position, but ₹45,000 is really the maximum I can go. If you change your mind, please let me know. Otherwise, I'll have to consider other options. Thank you for your time.",
+        "timestamp": "2025-09-25T14:32:40.363453",
+        "sender_type": "ai"
+      }
+    ],
+    "final_price": null,
+    "outcome": null
+  },
+  {
+    "id": "3d40db3f-228e-4bfb-9662-52f76aefe1b7",
+    "product_id": "scraped_3d40db3f-228e-4bfb-9662-52f76aefe1b7",
+    "user_params": {
+      "product_id": "",
+      "target_price": 40000,
+      "max_budget": 45000,
+      "approach": "diplomatic",
+      "timeline": "flexible",
+      "special_requirements": null
+    },
+    "status": "active",
+    "created_at": "2025-09-25T14:58:15.166779",
+    "ended_at": null,
+    "messages": [
+      {
+        "id": "72594ce9-db72-4e98-844f-016565398cf3",
+        "session_id": "3d40db3f-228e-4bfb-9662-52f76aefe1b7",
+        "sender": "ai",
+        "content": "I understand your position, but ₹45,000 is really the maximum I can go. If you change your mind, please let me know. Otherwise, I'll have to consider other options. Thank you for your time.",
+        "timestamp": "2025-09-25T14:58:17.169006",
+        "sender_type": "ai"
+      }
+    ],
+    "final_price": null,
+    "outcome": null
+  },
+  {
+    "id": "59f60496-516b-4abd-ad70-6e4d5960840c",
+    "product_id": "scraped_59f60496-516b-4abd-ad70-6e4d5960840c",
+    "user_params": {
+      "product_id": "",
+      "target_price": 40000,
+      "max_budget": 45000,
+      "approach": "diplomatic",
+      "timeline": "flexible",
+      "special_requirements": null
+    },
+    "status": "active",
+    "created_at": "2025-09-25T15:12:56.015771",
+    "ended_at": null,
+    "messages": [
+      {
+        "id": "530d5e65-4514-434c-a920-daca04a11d0b",
+        "session_id": "59f60496-516b-4abd-ad70-6e4d5960840c",
+        "sender": "ai",
+        "content": "I understand your position, but ₹45,000 is really the maximum I can go. If you change your mind, please let me know. Otherwise, I'll have to consider other options. Thank you for your time.",
+        "timestamp": "2025-09-25T15:12:58.018085",
+        "sender_type": "ai"
+      }
+    ],
+    "final_price": null,
+    "outcome": null
+  },
+  {
+    "id": "68cb2c50-ddaf-4319-805b-e72d8fde1f43",
+    "product_id": "scraped_68cb2c50-ddaf-4319-805b-e72d8fde1f43",
+    "user_params": {
+      "product_id": "",
+      "target_price": 40000,
+      "max_budget": 45000,
+      "approach": "diplomatic",
+      "timeline": "flexible",
+      "special_requirements": null
+    },
+    "status": "active",
+    "created_at": "2025-09-25T15:23:59.243108",
+    "ended_at": null,
+    "messages": [
+      {
+        "id": "bf7d72bc-34f1-4f38-bf04-fe410a45240b",
+        "session_id": "68cb2c50-ddaf-4319-805b-e72d8fde1f43",
+        "sender": "ai",
+        "content": "I understand your position, but ₹45,000 is really the maximum I can go. If you change your mind, please let me know. Otherwise, I'll have to consider other options. Thank you for your time.",
+        "timestamp": "2025-09-25T15:24:01.245604",
+        "sender_type": "ai"
+      }
+    ],
+    "final_price": null,
+    "outcome": null
+  },
+  {
+    "id": "fc74e466-3b01-44fb-b1b8-8d45ca56bf28",
+    "product_id": "scraped_fc74e466-3b01-44fb-b1b8-8d45ca56bf28",
+    "user_params": {
+      "product_id": "",
+      "target_price": 40000,
+      "max_budget": 45000,
+      "approach": "diplomatic",
+      "timeline": "flexible",
+      "special_requirements": null
+    },
+    "status": "active",
+    "created_at": "2025-09-25T15:26:18.999925",
+    "ended_at": null,
+    "messages": [
+      {
+        "id": "8f94d677-93ff-43c4-8d86-9ef7e3f7ccaa",
+        "session_id": "fc74e466-3b01-44fb-b1b8-8d45ca56bf28",
+        "sender": "ai",
+        "content": "I understand your position, but ₹45,000 is really the maximum I can go. If you change your mind, please let me know. Otherwise, I'll have to consider other options. Thank you for your time.",
+        "timestamp": "2025-09-25T15:26:21.003463",
+        "sender_type": "ai"
+      }
+    ],
+    "final_price": null,
+    "outcome": null
+  },
+  {
+    "id": "745b8f4b-6474-45ab-a93e-62623205590e",
+    "product_id": "scraped_745b8f4b-6474-45ab-a93e-62623205590e",
+    "user_params": {
+      "product_id": "",
+      "target_price": 40000,
+      "max_budget": 45000,
+      "approach": "assertive",
+      "timeline": "flexible",
+      "special_requirements": null
+    },
+    "status": "failed",
+    "created_at": "2025-09-25T15:30:00.568683",
+    "ended_at": "2025-09-25T15:30:24.166979",
+    "messages": [
+      {
+        "id": "a1612820-e208-488f-ad12-1b0939fc26ed",
+        "session_id": "745b8f4b-6474-45ab-a93e-62623205590e",
+        "sender": "ai",
+        "content": "I understand your position, but ₹45,000 is really the maximum I can go. If you change your mind, please let me know. Otherwise, I'll have to consider other options. Thank you for your time.",
+        "timestamp": "2025-09-25T15:30:02.571413",
+        "sender_type": "ai"
+      },
+      {
+        "id": "3bb24ac6-f49a-41f9-9a1d-0cb132148c40",
+        "session_id": "745b8f4b-6474-45ab-a93e-62623205590e",
+        "sender": "seller",
+        "content": "No the Price is Too Low",
+        "timestamp": "2025-09-25T15:30:24.166701",
+        "sender_type": "human"
+      },
+      {
+        "id": "14c06d74-d606-4b5a-9cbe-493960fe0f26",
+        "session_id": "745b8f4b-6474-45ab-a93e-62623205590e",
+        "sender": "system",
+        "content": "Session error: 'response'",
+        "timestamp": "2025-09-25T15:30:24.167008",
+        "sender_type": "error"
+      }
+    ],
+    "final_price": null,
+    "outcome": "technical_error"
+  },
+  {
+    "id": "688d5251-7a1e-4942-b104-3fdc31a65963",
+    "product_id": "scraped_688d5251-7a1e-4942-b104-3fdc31a65963",
+    "user_params": {
+      "product_id": "",
+      "target_price": 40000,
+      "max_budget": 45000,
+      "approach": "diplomatic",
+      "timeline": "flexible",
+      "special_requirements": null
+    },
+    "status": "failed",
+    "created_at": "2025-09-25T15:38:34.179234",
+    "ended_at": "2025-09-25T15:38:58.359010",
+    "messages": [
+      {
+        "id": "04677524-7fc2-44f5-bfd3-598b3dffe8ef",
+        "session_id": "688d5251-7a1e-4942-b104-3fdc31a65963",
+        "sender": "ai",
+        "content": "I understand your position, but ₹45,000 is really the maximum I can go. If you change your mind, please let me know. Otherwise, I'll have to consider other options. Thank you for your time.",
+        "timestamp": "2025-09-25T15:38:36.182025",
+        "sender_type": "ai"
+      },
+      {
+        "id": "2257123f-e592-42f8-8a4e-be0b1ad0a83f",
+        "session_id": "688d5251-7a1e-4942-b104-3fdc31a65963",
+        "sender": "seller",
+        "content": "The Price is too low",
+        "timestamp": "2025-09-25T15:38:58.358623",
+        "sender_type": "human"
+      },
+      {
+        "id": "02636625-3fb2-42eb-bcc2-664fe53327d0",
+        "session_id": "688d5251-7a1e-4942-b104-3fdc31a65963",
+        "sender": "system",
+        "content": "Session error: 'response'",
+        "timestamp": "2025-09-25T15:38:58.359035",
+        "sender_type": "error"
+      }
+    ],
+    "final_price": null,
+    "outcome": "technical_error"
+  },
+  {
+    "id": "d533dbfd-6a43-4274-b98c-75e775f0a98c",
+    "product_id": "scraped_d533dbfd-6a43-4274-b98c-75e775f0a98c",
+    "user_params": {
+      "product_id": "",
+      "target_price": 40000,
+      "max_budget": 45000,
+      "approach": "diplomatic",
+      "timeline": "flexible",
+      "special_requirements": null
+    },
+    "status": "active",
+    "created_at": "2025-09-25T15:49:22.739054",
+    "ended_at": null,
+    "messages": [
+      {
+        "id": "970a36f6-b5e7-4a90-a82a-f76b1fc909b2",
+        "session_id": "d533dbfd-6a43-4274-b98c-75e775f0a98c",
+        "sender": "ai",
+        "content": "I understand your position, but ₹45,000 is really the maximum I can go. If you change your mind, please let me know. Otherwise, I'll have to consider other options. Thank you for your time.",
+        "timestamp": "2025-09-25T15:49:24.741579",
+        "sender_type": "ai"
+      }
+    ],
+    "final_price": null,
+    "outcome": null
+  },
+  {
+    "id": "6d223de6-dbf4-43b1-8db3-d607945f37e3",
+    "product_id": "scraped_6d223de6-dbf4-43b1-8db3-d607945f37e3",
+    "user_params": {
+      "product_id": "",
+      "target_price": 40000,
+      "max_budget": 45000,
+      "approach": "diplomatic",
+      "timeline": "flexible",
+      "special_requirements": null
+    },
+    "status": "active",
+    "created_at": "2025-09-25T15:51:21.541929",
+    "ended_at": null,
+    "messages": [
+      {
+        "id": "0ec3adca-30d3-4154-8aa1-6c2a20cdb1de",
+        "session_id": "6d223de6-dbf4-43b1-8db3-d607945f37e3",
+        "sender": "ai",
+        "content": "I understand your position, but ₹45,000 is really the maximum I can go. If you change your mind, please let me know. Otherwise, I'll have to consider other options. Thank you for your time.",
+        "timestamp": "2025-09-25T15:51:23.544830",
+        "sender_type": "ai"
+      },
+      {
+        "id": "3d7610c6-bb97-482d-8474-e3986eb4b9cf",
+        "session_id": "6d223de6-dbf4-43b1-8db3-d607945f37e3",
+        "sender": "seller",
+        "content": "The Price is too low",
+        "timestamp": "2025-09-25T15:51:39.521988",
+        "sender_type": "human"
+      },
+      {
+        "id": "0d3967be-4f3b-4771-aae9-b1ea9f6126b6",
+        "session_id": "6d223de6-dbf4-43b1-8db3-d607945f37e3",
+        "sender": "ai",
+        "content": "I understand your position, but ₹45,000 is really the maximum I can go. If you change your mind, please let me know. Otherwise, I'll have to consider other options. Thank you for your time.",
+        "timestamp": "2025-09-25T15:51:39.522806",
+        "sender_type": "ai"
+      }
+    ],
+    "final_price": null,
+    "outcome": null
   }
 ]

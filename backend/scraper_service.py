@@ -24,6 +24,14 @@ import json
 from models import Product
 import logging
 
+# Import enhanced scraper
+try:
+    from enhanced_scraper import EnhancedMarketplaceScraper
+    ENHANCED_SCRAPER_AVAILABLE = True
+except ImportError:
+    ENHANCED_SCRAPER_AVAILABLE = False
+    logging.warning("Enhanced scraper not available, using fallback")
+
 logger = logging.getLogger(__name__)
 
 class MarketplaceScraper:
@@ -64,10 +72,25 @@ class MarketplaceScraper:
     
     async def scrape_product(self, url: str) -> Optional[Dict[str, Any]]:
         """
-        Scrape product information from marketplace URL
-        Supports OLX, Facebook Marketplace, and other platforms
+        Enhanced scrape product information from marketplace URL
+        Uses multiple strategies for better success rate
         """
         try:
+            # Try enhanced scraper first if available
+            if ENHANCED_SCRAPER_AVAILABLE:
+                try:
+                    async with EnhancedMarketplaceScraper() as enhanced_scraper:
+                        result = await enhanced_scraper.scrape_product(url)
+                        if result and result.get('scraped_successfully', False):
+                            logger.info(f"✅ Enhanced scraper succeeded for {url}")
+                            return result
+                        elif result:
+                            logger.info(f"⚠️ Enhanced scraper returned fallback data for {url}")
+                            return result
+                except Exception as e:
+                    logger.warning(f"Enhanced scraper failed: {e}, falling back to legacy scraper")
+            
+            # Fallback to legacy scraper
             domain = urlparse(url).netloc.lower()
             
             if 'olx' in domain:
@@ -707,7 +730,16 @@ class MarketIntelligence:
             
         except Exception as e:
             logger.error(f"Error in comprehensive analysis: {e}")
-            return self._get_fallback_analysis(product_data, user_target, user_budget)
+            # Ensure product_data is defined for fallback
+            fallback_product_data = product_data if 'product_data' in locals() else {
+                'title': 'Unknown Product',
+                'price': user_budget if user_budget > 0 else 10000,
+                'category': 'Other',
+                'condition': 'Good',
+                'location': 'Unknown',
+                'description': 'Product description not available'
+            }
+            return self._get_fallback_analysis(fallback_product_data, user_target, user_budget)
     
     async def analyze_market_price(self, product_title: str, category: str, current_price: int) -> Dict[str, Any]:
         """Enhanced market price analysis with category-specific intelligence"""

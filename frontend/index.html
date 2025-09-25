@@ -8,7 +8,7 @@
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/framer-motion@10/dist/framer-motion.umd.js"></script>
+    <script src="https://unpkg.com/framer-motion@10/dist/framer-motion.umd.js" onload="console.log('Framer Motion loaded successfully')" onerror="console.error('Failed to load Framer Motion')"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script>
         tailwind.config = {
@@ -16,16 +16,16 @@
                 extend: {
                     colors: {
                         primary: {
-                            50: '#faf5ff',
-                            100: '#f3e8ff',
-                            200: '#e9d5ff',
-                            300: '#d8b4fe',
-                            400: '#c084fc',
-                            500: '#a855f7',
-                            600: '#9333ea',
-                            700: '#7c3aed',
-                            800: '#6b21a8',
-                            900: '#581c87',
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            300: '#7dd3fc',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
                         },
                         secondary: {
                             50: '#f8fafc',
@@ -40,29 +40,28 @@
                             900: '#0f172a',
                         },
                         accent: {
-                            50: '#fdf4ff',
-                            100: '#fae8ff',
-                            200: '#f5d0fe',
-                            300: '#f0abfc',
-                            400: '#e879f9',
-                            500: '#d946ef',
-                            600: '#c026d3',
-                            700: '#a21caf',
-                            800: '#86198f',
-                            900: '#701a75',
+                            50: '#ecfeff',
+                            100: '#cffafe',
+                            200: '#a5f3fc',
+                            300: '#67e8f9',
+                            400: '#22d3ee',
+                            500: '#06b6d4',
+                            600: '#0891b2',
+                            700: '#0e7490',
+                            800: '#155e75',
+                            900: '#164e63',
                         },
-                        dark: {
-                            50: '#f8fafc',
-                            100: '#f1f5f9',
-                            200: '#e2e8f0',
-                            300: '#cbd5e1',
-                            400: '#94a3b8',
-                            500: '#64748b',
-                            600: '#475569',
-                            700: '#334155',
-                            800: '#1e293b',
-                            900: '#0f172a',
-                            950: '#020617',
+                        success: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            200: '#bbf7d0',
+                            300: '#86efac',
+                            400: '#4ade80',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534',
+                            900: '#14532d',
                         }
                     },
                     fontFamily: {
@@ -99,28 +98,77 @@
         }
         .glass-effect {
             backdrop-filter: blur(16px) saturate(180%);
-            background-color: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.125);
+            background-color: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
         }
         .gradient-text {
-            background: linear-gradient(135deg, #a855f7 0%, #d946ef 50%, #c026d3 100%);
+            background: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 50%, #22c55e 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
         .bg-gradient-animated {
-            background: linear-gradient(-45deg, #a855f7, #d946ef, #c026d3, #9333ea);
+            background: linear-gradient(-45deg, #0ea5e9, #06b6d4, #22c55e, #0284c7);
             background-size: 400% 400%;
             animation: gradient-x 15s ease infinite;
         }
+        .professional-card {
+            background: linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, rgba(6, 182, 212, 0.05) 100%);
+            border: 1px solid rgba(14, 165, 233, 0.2);
+        }
     </style>
 </head>
-<body class="bg-dark-950">
+<body class="bg-gradient-to-br from-secondary-900 via-secondary-800 to-primary-900 text-secondary-100">
     <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useEffect } = React;
-        const { motion, AnimatePresence } = Motion;
+        
+        // Fix for React 18 - use createRoot instead of render
+        const { createRoot } = ReactDOM;
+        
+        // Framer Motion setup with proper error handling
+        let motion, AnimatePresence;
+        
+        try {
+            if (typeof Motion !== 'undefined' && Motion.motion) {
+                ({ motion, AnimatePresence } = Motion);
+            } else {
+                throw new Error('Motion not available');
+            }
+        } catch (error) {
+            console.warn('Framer Motion not loaded properly, using fallback components');
+            // Enhanced fallback motion components
+            const createMotionComponent = (tag) => ({ 
+                children, 
+                initial, 
+                animate, 
+                transition, 
+                whileHover, 
+                whileTap, 
+                whileInView,
+                viewport,
+                className, 
+                onClick, 
+                style, 
+                ...props 
+            }) => React.createElement(tag, { 
+                className, 
+                onClick, 
+                style, 
+                ...props 
+            }, children);
+            
+            motion = {
+                div: createMotionComponent('div'),
+                button: createMotionComponent('button'),
+                section: createMotionComponent('section'),
+                h1: createMotionComponent('h1'),
+                h2: createMotionComponent('h2'),
+                p: createMotionComponent('p'),
+            };
+            AnimatePresence = ({ children }) => children;
+        }
 
         // Icons component (using FontAwesome for simplicity)
         const Icon = ({ name, className = "w-5 h-5" }) => (
@@ -154,15 +202,15 @@
             }
 
             return (
-                <div className="min-h-screen bg-gradient-to-br from-dark-950 via-dark-900 to-primary-950">
+                <div className="min-h-screen bg-gradient-to-br from-secondary-900 via-secondary-800 to-primary-900">
                     {/* Hero Section */}
                     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
                         {/* Background Effects */}
-                        <div className="absolute inset-0 bg-gradient-animated opacity-20"></div>
+                        <div className="absolute inset-0 bg-gradient-animated opacity-15"></div>
                         <div className="absolute inset-0">
-                            <div className="absolute top-20 left-10 w-72 h-72 bg-primary-600 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-float"></div>
-                            <div className="absolute top-40 right-10 w-72 h-72 bg-accent-600 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-float" style={{animationDelay: '2s'}}></div>
-                            <div className="absolute bottom-20 left-1/2 w-72 h-72 bg-primary-800 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-float" style={{animationDelay: '4s'}}></div>
+                            <div className="absolute top-20 left-10 w-72 h-72 bg-primary-600 rounded-full mix-blend-multiply filter blur-xl opacity-15 animate-float"></div>
+                            <div className="absolute top-40 right-10 w-72 h-72 bg-accent-600 rounded-full mix-blend-multiply filter blur-xl opacity-15 animate-float" style={{animationDelay: '2s'}}></div>
+                            <div className="absolute bottom-20 left-1/2 w-72 h-72 bg-success-600 rounded-full mix-blend-multiply filter blur-xl opacity-15 animate-float" style={{animationDelay: '4s'}}></div>
                         </div>
 
                         <div className="relative z-10 text-center px-4 max-w-6xl mx-auto">
@@ -172,60 +220,60 @@
                                 transition={{ duration: 0.8 }}
                             >
                                 <motion.div 
-                                    className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full border border-white/20 text-primary-300 text-sm font-medium mb-8"
+                                    className="inline-flex items-center gap-2 px-6 py-3 professional-card rounded-full text-primary-300 text-sm font-semibold mb-8"
                                     whileHover={{ scale: 1.05 }}
                                 >
-                                    <Icon name="sparkles" className="w-4 h-4" />
+                                    <Icon name="cpu" className="w-4 h-4" />
                                     Powered by Advanced AI Technology
                                 </motion.div>
 
                                 <h1 className="text-6xl md:text-8xl font-black mb-6 leading-tight">
-                                    <span className="gradient-text">Negotiate</span>
+                                    <span className="gradient-text">Negotiate Bot                                    <span className="text-white">Like a Professional</span>
+</span>
                                     <br />
-                                    <span className="text-white">Like a Pro</span>
                                 </h1>
 
-                                <p className="text-xl md:text-2xl text-gray-300 mb-12 max-w-3xl mx-auto leading-relaxed">
-                                    AI-powered marketplace negotiation that gets you the best deals automatically. 
-                                    Smart strategies, real-time analysis, and better outcomes.
+                                <p className="text-xl md:text-2xl text-secondary-300 mb-12 max-w-3xl mx-auto leading-relaxed">
+                                    Enterprise-grade AI negotiation platform delivering superior results through 
+                                    intelligent strategies and comprehensive market analysis.
                                 </p>
 
                                 <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
                                     <motion.button
                                         onClick={() => handleGetStarted('buyer')}
-                                        className="px-8 py-4 bg-gradient-to-r from-primary-600 to-accent-600 text-white font-bold rounded-2xl shadow-2xl hover:shadow-primary-500/25 transition-all duration-300 flex items-center gap-3 text-lg"
+                                        className="px-10 py-5 bg-gradient-to-r from-primary-600 to-accent-500 text-white font-semibold rounded-xl shadow-2xl hover:shadow-primary-500/30 transition-all duration-300 flex items-center gap-3 text-lg group"
                                         whileHover={{ scale: 1.05 }}
                                         whileTap={{ scale: 0.95 }}
                                     >
                                         <Icon name="shopping-cart" />
                                         Start as Buyer
-                                        <Icon name="arrow-right" />
+                                        <Icon name="arrow-right" className="group-hover:translate-x-1 transition-transform" />
                                     </motion.button>
 
                                     <motion.button
                                         onClick={() => handleGetStarted('seller')}
-                                        className="px-8 py-4 bg-white/10 backdrop-blur-sm text-white font-bold rounded-2xl border border-white/20 hover:bg-white/20 transition-all duration-300 flex items-center gap-3 text-lg"
+                                        className="px-10 py-5 professional-card text-white font-semibold rounded-xl hover:bg-white/15 transition-all duration-300 flex items-center gap-3 text-lg group"
                                         whileHover={{ scale: 1.05 }}
                                         whileTap={{ scale: 0.95 }}
                                     >
                                         <Icon name="store" />
                                         Join as Seller
-                                        <Icon name="external-link-alt" />
+                                        <Icon name="external-link-alt" className="group-hover:translate-x-1 transition-transform" />
                                     </motion.button>
                                 </div>
 
-                                <div className="mt-12 flex items-center justify-center gap-8 text-sm text-gray-400">
-                                    <div className="flex items-center gap-2">
-                                        <Icon name="check-circle" className="w-4 h-4 text-green-400" />
-                                        <span>Free to Start</span>
+                                <div className="mt-16 flex items-center justify-center gap-12 text-sm text-secondary-400">
+                                    <div className="flex items-center gap-3">
+                                        <Icon name="check-circle" className="w-5 h-5 text-success-400" />
+                                        <span className="font-medium">Free to Start</span>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <Icon name="shield-alt" className="w-4 h-4 text-blue-400" />
-                                        <span>Secure & Private</span>
+                                    <div className="flex items-center gap-3">
+                                        <Icon name="shield-alt" className="w-5 h-5 text-primary-400" />
+                                        <span className="font-medium">Enterprise Security</span>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <Icon name="bolt" className="w-4 h-4 text-yellow-400" />
-                                        <span>Instant Results</span>
+                                    <div className="flex items-center gap-3">
+                                        <Icon name="bolt" className="w-5 h-5 text-accent-400" />
+                                        <span className="font-medium">Instant Results</span>
                                     </div>
                                 </div>
                             </motion.div>
@@ -242,66 +290,67 @@
                                 viewport={{ once: true }}
                             >
                                 <h2 className="text-4xl md:text-5xl font-bold gradient-text mb-6">
-                                    Why Choose NegotiBot AI?
+                                    Enterprise Negotiation Platform
                                 </h2>
-                                <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-                                    Advanced AI technology meets marketplace negotiation to deliver unmatched results
+                                <p className="text-xl text-secondary-300 max-w-3xl mx-auto">
+                                    Professional-grade AI technology delivering superior negotiation outcomes 
+                                    through intelligent market analysis and strategic automation.
                                 </p>
                             </motion.div>
 
                             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
                                 {[
                                     {
-                                        icon: 'robot',
-                                        title: 'AI-Powered Negotiation',
-                                        description: 'Advanced algorithms analyze seller behavior and market trends to craft winning negotiation strategies.',
-                                        color: 'from-primary-500 to-purple-600'
+                                        icon: 'brain',
+                                        title: 'AI-Powered Analytics',
+                                        description: 'Advanced algorithms analyze market patterns and seller behavior to optimize negotiation strategies.',
+                                        color: 'from-primary-500 to-primary-700'
                                     },
                                     {
                                         icon: 'chart-line',
-                                        title: 'Market Analysis',
-                                        description: 'Real-time price comparisons and market insights help you make informed decisions.',
-                                        color: 'from-accent-500 to-pink-600'
+                                        title: 'Market Intelligence',
+                                        description: 'Real-time price analysis and market insights provide strategic advantages in negotiations.',
+                                        color: 'from-accent-500 to-accent-700'
                                     },
                                     {
                                         icon: 'comments',
-                                        title: 'Real-Time Chat',
-                                        description: 'Seamless communication between buyers and sellers with AI assistance.',
-                                        color: 'from-blue-500 to-cyan-600'
+                                        title: 'Professional Communication',
+                                        description: 'Seamless integration between buyers and sellers with AI-assisted communication tools.',
+                                        color: 'from-success-500 to-success-700'
                                     },
                                     {
                                         icon: 'shield-alt',
-                                        title: 'Secure Platform',
-                                        description: 'Enterprise-grade security ensures your data and negotiations remain private.',
-                                        color: 'from-green-500 to-emerald-600'
+                                        title: 'Enterprise Security',
+                                        description: 'Bank-level encryption and security protocols protect your business negotiations.',
+                                        color: 'from-primary-600 to-accent-600'
                                     },
                                     {
                                         icon: 'bolt',
-                                        title: 'Lightning Fast',
-                                        description: 'Get negotiation results in seconds, not hours. Efficiency meets effectiveness.',
-                                        color: 'from-yellow-500 to-orange-600'
+                                        title: 'Instant Processing',
+                                        description: 'High-performance systems deliver negotiation results and market analysis in real-time.',
+                                        color: 'from-accent-600 to-success-600'
                                     },
                                     {
                                         icon: 'trophy',
-                                        title: 'Better Outcomes',
-                                        description: 'Users report 25-40% better deal outcomes compared to manual negotiation.',
-                                        color: 'from-purple-500 to-indigo-600'
+                                        title: 'Superior Results',
+                                        description: 'Proven track record of 25-40% better negotiation outcomes compared to traditional methods.',
+                                        color: 'from-success-600 to-primary-600'
                                     }
                                 ].map((feature, index) => (
                                     <motion.div
                                         key={index}
-                                        className="glass-effect rounded-2xl p-8 hover:bg-white/10 transition-all duration-300"
+                                        className="professional-card rounded-xl p-8 hover:bg-white/10 transition-all duration-300 border-l-4 border-l-primary-500"
                                         initial={{ opacity: 0, y: 30 }}
                                         whileInView={{ opacity: 1, y: 0 }}
                                         viewport={{ once: true }}
                                         transition={{ delay: index * 0.1 }}
                                         whileHover={{ scale: 1.02 }}
                                     >
-                                        <div className={`w-16 h-16 bg-gradient-to-r ${feature.color} rounded-2xl flex items-center justify-center mb-6 shadow-lg`}>
-                                            <Icon name={feature.icon} className="w-8 h-8 text-white" />
+                                        <div className={`w-14 h-14 bg-gradient-to-r ${feature.color} rounded-lg flex items-center justify-center mb-6 shadow-lg`}>
+                                            <Icon name={feature.icon} className="w-7 h-7 text-white" />
                                         </div>
-                                        <h3 className="text-xl font-bold text-white mb-4">{feature.title}</h3>
-                                        <p className="text-gray-300 leading-relaxed">{feature.description}</p>
+                                        <h3 className="text-xl font-semibold text-white mb-4">{feature.title}</h3>
+                                        <p className="text-secondary-300 leading-relaxed">{feature.description}</p>
                                     </motion.div>
                                 ))}
                             </div>
@@ -386,13 +435,21 @@
                     }
 
                     const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
+                    
+                    // Fix: Use correct field names for backend API
                     const payload = isLogin 
-                        ? { email: formData.email, password: formData.password, user_type: formData.userType }
+                        ? { 
+                            username: formData.email, 
+                            password: formData.password, 
+                            role: formData.userType 
+                        }
                         : { 
-                            name: formData.name, 
-                            email: formData.email, 
+                            username: formData.email, // Using email as username
+                            email: formData.email,
+                            full_name: formData.name, 
+                            phone: '1234567890', // Default phone for demo
                             password: formData.password,
-                            user_type: formData.userType
+                            role: formData.userType
                         };
 
                     const response = await fetch(endpoint, {
@@ -538,8 +595,9 @@
             );
         };
 
-        // Render the app
-        ReactDOM.render(<LandingPage />, document.getElementById('root'));
+        // Render the app using React 18's createRoot API
+        const root = createRoot(document.getElementById('root'));
+        root.render(<LandingPage />);
     </script>
 </body>
 </html>

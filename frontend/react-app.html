@@ -1017,12 +1017,46 @@
                     }, [
                         React.createElement('div', {
                             key: 'title',
-                            className: 'font-medium text-blue-400 mb-1'
+                            className: 'font-medium text-blue-400 mb-2'
                         }, 'Session Active'),
                         React.createElement('div', {
-                            key: 'info',
-                            className: 'text-gray-300'
-                        }, sessionInfo)
+                            key: 'session-id-container',
+                            className: 'bg-gray-700 p-3 rounded border'
+                        }, [
+                            React.createElement('div', {
+                                key: 'session-label',
+                                className: 'text-xs text-gray-400 mb-1'
+                            }, 'Session ID (Share with seller):'),
+                            React.createElement('div', {
+                                key: 'session-id-wrapper',
+                                className: 'flex items-center gap-2'
+                            }, [
+                                React.createElement('code', {
+                                    key: 'session-id',
+                                    className: 'text-sm font-mono text-green-400 break-all flex-1'
+                                }, sessionInfo),
+                                React.createElement('button', {
+                                    key: 'copy-btn',
+                                    className: 'px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors',
+                                    onClick: () => {
+                                        navigator.clipboard.writeText(sessionInfo).then(() => {
+                                            // Show toast or temporary feedback
+                                            const btn = event.target;
+                                            const originalText = btn.textContent;
+                                            btn.textContent = 'Copied!';
+                                            btn.className = btn.className.replace('bg-blue-600 hover:bg-blue-700', 'bg-green-600');
+                                            setTimeout(() => {
+                                                btn.textContent = originalText;
+                                                btn.className = btn.className.replace('bg-green-600', 'bg-blue-600 hover:bg-blue-700');
+                                            }, 2000);
+                                        }).catch(err => {
+                                            console.error('Failed to copy:', err);
+                                            alert('Failed to copy. Please select and copy manually.');
+                                        });
+                                    }
+                                }, 'Copy')
+                            ])
+                        ])
                     ])
                 ])
             ]);
@@ -1323,6 +1357,7 @@
             const handleWebSocketMessage = (data) => {
                 switch (data.type) {
                     case 'ai_message':
+                    case 'ai_response':
                     case 'negotiation_update':
                         addMessage({
                             type: 'ai',
@@ -1332,7 +1367,7 @@
                         });
                         
                         // Update metrics if available
-                        if (data.progress !== undefined || data.current_offer !== undefined) {
+                        if (data.progress !== undefined || data.current_offer !== undefined || data.confidence !== undefined) {
                             updateMetrics({
                                 negotiationProgress: data.progress || state.metrics.negotiationProgress,
                                 currentOffer: data.current_offer || state.metrics.currentOffer,
@@ -1487,7 +1522,7 @@
             };
 
             const sessionInfo = state.sessionId ? 
-                `Session ID: ${state.sessionId.substring(0, 8)}...` : 
+                state.sessionId : 
                 null;
 
             return React.createElement('div', {

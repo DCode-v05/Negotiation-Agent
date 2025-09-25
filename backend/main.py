@@ -281,8 +281,9 @@ async def ai_service_status():
 
 @app.get("/")
 async def root():
-    """Root endpoint - redirect to main interface"""
-    return {"message": "NegotiBot AI Backend", "frontend_url": "/react/index.html", "seller_portal": "/react/seller-portal.html"}
+    """Redirect to seller portal"""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/react/seller-portal.html")
 
 @app.get("/seller-portal")
 async def seller_portal_redirect():
@@ -411,6 +412,99 @@ async def update_user_profile(user_id: str, profile_data: UserProfileUpdate):
         raise HTTPException(status_code=500, detail="Profile update failed")
 
 # ===== NEGOTIATION ENDPOINTS =====
+
+@app.post("/api/debug-demo-negotiate")
+async def debug_demo_negotiate(request: URLNegotiationRequest, background_tasks: BackgroundTasks):
+    """Debug demo negotiation endpoint without authentication (for testing)"""
+    logger.info(f"[DEBUG] Starting debug demo negotiation...")
+    try:
+        # Create demo product data based on the URL pattern
+        url = request.product_url.lower()
+        
+        if 'laptop' in url or 'macbook' in url or 'computer' in url:
+            demo_title = "MacBook Air M2 - Excellent Condition"
+            demo_price = 85000
+            demo_description = "MacBook Air with M2 chip, 8GB RAM, 256GB SSD. Barely used, perfect condition."
+        elif 'phone' in url or 'mobile' in url or 'iphone' in url:
+            demo_title = "iPhone 14 Pro - Like New"
+            demo_price = 65000
+            demo_description = "iPhone 14 Pro 128GB, space black. Mint condition with original accessories."
+        elif 'furniture' in url or 'sofa' in url or 'chair' in url:
+            demo_title = "Modern Office Furniture Set"
+            demo_price = 25000
+            demo_description = "Complete office furniture set including desk, chair, and storage. Excellent quality."
+        else:
+            demo_title = "Premium Product - Great Deal"
+            demo_price = 45000
+            demo_description = "High-quality product in excellent condition. Perfect for your needs."
+        
+        # Create demo product
+        demo_product = Product(
+            id=str(uuid.uuid4()),
+            title=demo_title,
+            description=demo_description,
+            price=demo_price,
+            original_price=int(demo_price * 1.4),  # 40% higher original price
+            seller_name="Demo Seller",
+            seller_contact="Contact via platform",
+            location="Bangalore, Karnataka",
+            category="Electronics",
+            condition="Excellent",
+            url=request.product_url,  # Add this field
+            platform="Demo",  # Add this field
+            images=[],  # Add this field
+            features=[],  # Add this field
+            posted_date=datetime.now(),  # Add this field
+        )
+        
+        logger.info(f"[DEBUG] Created demo product: {demo_product.id}")
+        
+        # Store in database
+        await db.add_product(demo_product)
+        logger.info(f"[DEBUG] Product stored in database")
+        
+        # Create negotiation parameters
+        params = NegotiationParams(
+            product_id=demo_product.id,
+            target_price=request.target_price,
+            max_budget=request.max_budget,
+            approach=request.approach,
+            timeline=request.timeline,
+            special_requirements=request.special_requirements
+        )
+        
+        logger.info(f"[DEBUG] Created negotiation params")
+        
+        # Create session
+        session = await session_manager.create_session(demo_product, params)
+        logger.info(f"[DEBUG] Created session: {session.session_id}")
+        logger.info(f"[DEBUG] Active sessions now: {list(session_manager.active_sessions.keys())}")
+        
+        # Start background negotiation
+        background_tasks.add_task(auto_start_negotiation, session.session_id)
+        
+        return {
+            "success": True,
+            "session": {
+                "session_id": session.session_id,
+                "product_info": demo_product.dict()
+            },
+            "product_info": demo_product.dict(),
+            "market_analysis": {
+                "average_price": demo_price,
+                "price_range": {"min": int(demo_price * 0.8), "max": int(demo_price * 1.2)},
+                "market_trend": "stable"
+            },
+            "message": "Debug demo negotiation session created! AI is ready to negotiate.",
+            "demo_mode": True
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in debug demo negotiate: {e}")
+        return {
+            "success": False,
+            "message": f"Debug demo setup failed: {str(e)}"
+        }
 
 @app.post("/api/demo-negotiate")
 async def demo_negotiate(request: URLNegotiationRequest, background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_buyer)):
@@ -654,7 +748,7 @@ async def websocket_user_endpoint(websocket: WebSocket, session_id: str):
                 "data": {
                     "phase": session_data.get('phase', 'unknown'),
                     "messages_count": len(session_data['session'].messages),
-                    "product": session_data['product'].dict(),
+                    "product": session_data['product'].model_dump(mode='json'),
                     "market_analysis": session_data.get('market_analysis', {})
                 }
             })
@@ -683,11 +777,16 @@ async def websocket_seller_endpoint(websocket: WebSocket, session_id: str):
         while True:
             # Listen for seller messages
             data = await websocket.receive_text()
+            logger.info(f"[DEBUG] Seller WebSocket received data: {data}")
             message_data = json.loads(data)
+            logger.info(f"[DEBUG] Parsed message data: {message_data}")
             
             # Process seller message with advanced negotiation engine
             if message_data.get('type') == 'message':
+                logger.info(f"[DEBUG] Processing message type 'message' with content: {message_data.get('content', '')}")
                 await handle_advanced_seller_message(session_id, message_data.get('content', ''))
+            else:
+                logger.warning(f"[DEBUG] Unknown message type: {message_data.get('type')}")
                 
     except WebSocketDisconnect:
         manager.disconnect_seller(session_id)
@@ -703,19 +802,29 @@ async def websocket_seller_endpoint(websocket: WebSocket, session_id: str):
 async def handle_advanced_seller_message(session_id: str, seller_message: str):
     """Handle seller message with advanced negotiation processing"""
     try:
+        logger.info(f"[DEBUG] handle_advanced_seller_message called with session_id: {session_id}, message: {seller_message}")
+        logger.info(f"[DEBUG] Active sessions: {list(session_manager.active_sessions.keys())}")
+        
         if session_id not in session_manager.active_sessions:
-            logger.warning(f"Session {session_id} not found in active sessions")
+            logger.warning(f"Session {session_id} not found in active sessions. Available sessions: {list(session_manager.active_sessions.keys())}")
+            
+            # Send error to seller
+            await manager.send_to_seller(session_id, {
+                "type": "error",
+                "message": "Session not found. Please start a negotiation from the buyer side first."
+            })
             return
         
         logger.info(f"Processing seller message in session {session_id}: {seller_message[:100]}...")
         
         # Process through advanced session manager
         result = await session_manager.process_seller_response(session_id, seller_message)
+        logger.info(f"[DEBUG] Session manager returned result: {result}")
         
         # Send seller message to user for monitoring
         await manager.send_to_user(session_id, {
             "type": "seller_message",
-            "content": seller_message,
+            "message": seller_message,
             "timestamp": datetime.now().isoformat()
         })
         
@@ -764,7 +873,7 @@ async def handle_advanced_seller_message(session_id: str, seller_message: str):
             # Send AI response and analysis to user
             await manager.send_to_user(session_id, {
                 "type": "ai_response",
-                "content": ai_response,
+                "message": ai_response,
                 "decision": result.get('decision', {}),
                 "tactics_used": result.get('tactics_used', []),
                 "phase": result.get('phase'),
@@ -981,6 +1090,77 @@ async def get_performance_analytics():
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/debug/sessions")
+def debug_list_sessions():
+    """Debug: List all active sessions"""
+    return {
+        "active_sessions": list(session_manager.active_sessions.keys()),
+        "session_count": len(session_manager.active_sessions),
+        "session_details": {
+            session_id: {
+                "user_websocket": session_data.get("user_websocket") is not None,
+                "seller_websocket": session_data.get("seller_websocket") is not None,
+                "created": session_data.get("created_at", "unknown")
+            }
+            for session_id, session_data in session_manager.active_sessions.items()
+        }
+    }
+
+@app.get("/api/session/{session_id}/details")
+def get_session_details(session_id: str):
+    """Get session details for seller interface"""
+    if session_id not in session_manager.active_sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    session_data = session_manager.active_sessions[session_id]
+    
+    # Extract product details
+    product = session_data.get("product")
+    product_details = {}
+    if product:
+        if hasattr(product, 'dict'):
+            product_details = product.dict()
+        else:
+            product_details = {
+                "title": getattr(product, 'title', 'Unknown Product'),
+                "price": getattr(product, 'price', 0),
+                "original_price": getattr(product, 'original_price', 0),
+                "description": getattr(product, 'description', ''),
+                "location": getattr(product, 'location', ''),
+                "condition": getattr(product, 'condition', ''),
+                "seller_name": getattr(product, 'seller_name', ''),
+                "url": getattr(product, 'url', '')
+            }
+    
+    # Extract user parameters
+    user_params = session_data.get("user_params", {})
+    
+    # Handle user_params as either dict or NegotiationParams object
+    if hasattr(user_params, 'target_price'):
+        target_price = user_params.target_price
+        max_budget = user_params.max_budget
+        user_preferences = user_params.dict() if hasattr(user_params, 'dict') else {}
+    else:
+        target_price = user_params.get("target_price")
+        max_budget = user_params.get("max_budget")
+        user_preferences = user_params
+    
+    return {
+        "session_id": session_id,
+        "product_details": product_details,
+        "target_price": target_price,
+        "max_budget": max_budget,
+        "user_preferences": user_preferences,
+        "negotiation_status": session_data.get("status", "active"),
+        "chat_history": session_data.get("chat_history", []),
+        "created_at": session_data.get("created_at"),
+        "is_connected": {
+            "buyer": session_data.get("user_websocket") is not None,
+            "seller": session_data.get("seller_websocket") is not None
+        }
+    }
 
 
 if __name__ == "__main__":
