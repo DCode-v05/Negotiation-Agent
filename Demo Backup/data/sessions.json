@@ -1,0 +1,56 @@
+[
+  {
+    "id": "93385fbf-9070-4825-8a64-aa934afcf967",
+    "product_id": "scraped_93385fbf-9070-4825-8a64-aa934afcf967",
+    "user_params": {
+      "product_id": "",
+      "target_price": 1500,
+      "max_budget": 1600,
+      "approach": "diplomatic",
+      "timeline": "flexible",
+      "special_requirements": null
+    },
+    "status": "active",
+    "created_at": "2025-09-25T00:23:24.825770",
+    "ended_at": null,
+    "messages": [
+      {
+        "id": "26b4cf60-9066-498d-b587-9e7dca1f3507",
+        "session_id": "93385fbf-9070-4825-8a64-aa934afcf967",
+        "sender": "ai",
+        "content": "I understand. Let me think about your offer and get back to you.",
+        "timestamp": "2025-09-25T00:23:26.828155",
+        "sender_type": "ai"
+      }
+    ],
+    "final_price": null,
+    "outcome": null
+  },
+  {
+    "id": "e85b2578-6f09-4721-bd58-005806c08051",
+    "product_id": "scraped_e85b2578-6f09-4721-bd58-005806c08051",
+    "user_params": {
+      "product_id": "",
+      "target_price": 1500,
+      "max_budget": 1600,
+      "approach": "diplomatic",
+      "timeline": "flexible",
+      "special_requirements": null
+    },
+    "status": "active",
+    "created_at": "2025-09-25T02:08:02.818983",
+    "ended_at": null,
+    "messages": [
+      {
+        "id": "95903f1d-680a-4920-91bc-c5a8a019b3c6",
+        "session_id": "e85b2578-6f09-4721-bd58-005806c08051",
+        "sender": "ai",
+        "content": "I understand. Let me think about your offer and get back to you.",
+        "timestamp": "2025-09-25T02:08:04.822390",
+        "sender_type": "ai"
+      }
+    ],
+    "final_price": null,
+    "outcome": null
+  }
+]

@@ -1,0 +1,1547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NegotiBot AI - Professional Negotiation Assistant</title>
+    
+    <!-- React and Babel CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        },
+                        dark: {
+                            700: '#334155',
+                            800: '#1e293b',
+                            900: '#0f172a',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-in-out',
+                        'slide-up': 'slideUp 0.3s ease-out',
+                        'spin-slow': 'spin 2s linear infinite',
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(10px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #0ea5e9 0%, #3b82f6 50%, #6366f1 100%);
+        }
+        
+        .message {
+            animation: slideUp 0.3s ease-out;
+        }
+    </style>
+</head>
+<body class="font-sans">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;        
+        // Utility functions
+        const formatNumber = (num) => {
+            return new Intl.NumberFormat('en-IN').format(num || 0);
+        };
+
+        // Toast notifications (simple implementation)
+        const showToast = (message, type = 'info') => {
+            const toast = document.createElement('div');
+            toast.className = `fixed top-4 right-4 px-6 py-3 rounded-lg text-white z-50 ${
+                type === 'success' ? 'bg-green-500' :
+                type === 'error' ? 'bg-red-500' :
+                type === 'warning' ? 'bg-yellow-500' :
+                'bg-blue-500'
+            }`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 4000);
+        };
+
+        // Main App State
+        const useAppState = () => {
+            const [state, setState] = useState({
+                // Connection state
+                isConnected: false,
+                connectionStatus: 'disconnected', // disconnected, connecting, connected, error
+                
+                // Session state
+                sessionId: null,
+                isNegotiating: false,
+                
+                // Product data
+                product: null,
+                marketAnalysis: null,
+                
+                // Messages
+                messages: [],
+                
+                // Form data
+                formData: {
+                    productUrl: '',
+                    targetPrice: '',
+                    maxBudget: '',
+                    approach: 'diplomatic',
+                    timeline: 'flexible',
+                    specialRequirements: ''
+                },
+                
+                // Metrics
+                metrics: {
+                    negotiationProgress: 0,
+                    currentOffer: 0,
+                    savingsPotential: 0,
+                    aiConfidence: 'Medium'
+                }
+            });
+
+            const updateState = (updates) => {
+                setState(prev => ({ ...prev, ...updates }));
+            };
+
+            const updateFormData = (updates) => {
+                setState(prev => ({
+                    ...prev,
+                    formData: { ...prev.formData, ...updates }
+                }));
+            };
+
+            const updateMetrics = (updates) => {
+                setState(prev => ({
+                    ...prev,
+                    metrics: { ...prev.metrics, ...updates }
+                }));
+            };
+
+            const addMessage = (message) => {
+                setState(prev => ({
+                    ...prev,
+                    messages: [...prev.messages, { ...message, id: Date.now(), timestamp: new Date() }]
+                }));
+            };
+
+            const reset = () => {
+                setState(prev => ({
+                    ...prev,
+                    isConnected: false,
+                    connectionStatus: 'disconnected',
+                    sessionId: null,
+                    isNegotiating: false,
+                    product: null,
+                    marketAnalysis: null,
+                    messages: [],
+                    metrics: {
+                        negotiationProgress: 0,
+                        currentOffer: 0,
+                        savingsPotential: 0,
+                        aiConfidence: 'Medium'
+                    }
+                }));
+            };
+
+            return { state, updateState, updateFormData, updateMetrics, addMessage, reset };
+        };
+
+        // WebSocket Hook
+        const useWebSocket = (sessionId, onMessage) => {
+            const wsRef = useRef(null);
+            const [isConnected, setIsConnected] = useState(false);
+
+            useEffect(() => {
+                if (!sessionId) return;
+
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//${window.location.host}/ws/user/${sessionId}`;
+
+                try {
+                    wsRef.current = new WebSocket(wsUrl);
+
+                    wsRef.current.onopen = () => {
+                        setIsConnected(true);
+                        console.log('WebSocket connected');
+                        onMessage({ type: 'system', content: 'Connected to AI negotiation assistant' });
+                    };
+
+                    wsRef.current.onmessage = (event) => {
+                        try {
+                            const data = JSON.parse(event.data);
+                            onMessage(data);
+                        } catch (error) {
+                            console.error('Error parsing WebSocket message:', error);
+                        }
+                    };
+
+                    wsRef.current.onclose = () => {
+                        setIsConnected(false);
+                        console.log('WebSocket disconnected');
+                        onMessage({ type: 'system', content: 'Connection lost. Please refresh the page.' });
+                    };
+
+                    wsRef.current.onerror = (error) => {
+                        console.error('WebSocket error:', error);
+                        setIsConnected(false);
+                        onMessage({ type: 'system', content: 'Connection error occurred' });
+                    };
+
+                } catch (error) {
+                    console.error('Failed to create WebSocket connection:', error);
+                    setIsConnected(false);
+                }
+
+                return () => {
+                    if (wsRef.current) {
+                        wsRef.current.close();
+                    }
+                };
+            }, [sessionId]);
+
+            return { isConnected };
+        };
+
+        // API Service
+        const apiService = {
+            getAuthHeaders() {
+                const token = localStorage.getItem('negotibot_token');
+                return token ? { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                } : { 'Content-Type': 'application/json' };
+            },
+
+            async startNegotiation(data) {
+                const response = await fetch('/api/negotiate-url', {
+                    method: 'POST',
+                    headers: this.getAuthHeaders(),
+                    body: JSON.stringify(data)
+                });
+                return response.json();
+            },
+
+            async startDemo(data) {
+                const response = await fetch('/api/demo-negotiate', {
+                    method: 'POST',
+                    headers: this.getAuthHeaders(),
+                    body: JSON.stringify(data)
+                });
+                return response.json();
+            },
+
+            async sendMessage(sessionId, message) {
+                const response = await fetch('/api/seller-response', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        message: message
+                    })
+                });
+                return response.json();
+            },
+
+            // Authentication methods
+            async login(credentials) {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(credentials)
+                });
+                return response.json();
+            },
+
+            async register(userData) {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(userData)
+                });
+                return response.json();
+            },
+
+            async logout(logoutData) {
+                const response = await fetch('/api/auth/logout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(logoutData)
+                });
+                return response.json();
+            },
+
+            async getProfile(userId) {
+                const response = await fetch(`/api/auth/profile/${userId}`, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                return response.json();
+            }
+        };
+
+        // Message Bubble Component
+        const MessageBubble = ({ message }) => {
+            const getMessageStyles = () => {
+                switch (message.type) {
+                    case 'ai':
+                    case 'ai_message':
+                        return {
+                            container: 'flex items-start gap-3 max-w-4xl mb-4',
+                            avatar: 'w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white text-xl',
+                            bubble: 'bg-white border border-gray-200 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm flex-1',
+                            text: 'text-gray-900'
+                        };
+                    case 'user':
+                    case 'seller':
+                        return {
+                            container: 'flex items-start gap-3 max-w-4xl ml-auto flex-row-reverse mb-4',
+                            avatar: 'w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center text-white text-xl',
+                            bubble: 'bg-gray-100 border border-gray-200 rounded-2xl rounded-tr-sm px-4 py-3 flex-1',
+                            text: 'text-gray-900'
+                        };
+                    case 'system':
+                        return {
+                            container: 'flex items-center justify-center max-w-4xl mx-auto mb-4',
+                            avatar: 'w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm',
+                            bubble: 'bg-blue-50 border-blue-200 border rounded-lg px-4 py-3',
+                            text: 'text-blue-900 text-sm'
+                        };
+                    default:
+                        return {
+                            container: 'flex items-start gap-3 max-w-4xl mb-4',
+                            avatar: 'w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center text-white',
+                            bubble: 'bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3 flex-1',
+                            text: 'text-gray-900'
+                        };
+                }
+            };
+
+            const styles = getMessageStyles();
+
+            return React.createElement('div', {
+                className: `${styles.container} message`
+            }, [
+                React.createElement('div', {
+                    key: 'avatar',
+                    className: styles.avatar
+                }, message.type === 'ai' || message.type === 'ai_message' ? '🤖' : 
+                   message.type === 'system' ? 'ℹ️' : '👤'),
+                
+                React.createElement('div', {
+                    key: 'content',
+                    className: styles.bubble
+                }, [
+                    React.createElement('div', {
+                        key: 'text',
+                        className: styles.text
+                    }, message.content || message.message),
+                    
+                    React.createElement('div', {
+                        key: 'timestamp',
+                        className: 'text-xs text-gray-500 mt-2'
+                    }, new Date(message.timestamp).toLocaleTimeString())
+                ])
+            ]);
+        };
+
+        // Product Info Component
+        const ProductInfo = ({ product, isVisible }) => {
+            if (!isVisible || !product) return null;
+
+            return React.createElement('div', {
+                className: 'bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-6'
+            }, [
+                React.createElement('div', {
+                    key: 'content',
+                    className: 'p-6'
+                }, [
+                    React.createElement('div', {
+                        key: 'header',
+                        className: 'flex items-start gap-4 mb-4'
+                    }, [
+                        React.createElement('div', {
+                            key: 'icon',
+                            className: 'w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center flex-shrink-0 text-white text-2xl'
+                        }, '📦'),
+                        
+                        React.createElement('div', {
+                            key: 'info',
+                            className: 'flex-1 min-w-0'
+                        }, [
+                            React.createElement('h3', {
+                                key: 'title',
+                                className: 'text-xl font-semibold text-gray-900 mb-2'
+                            }, product.title),
+                            
+                            React.createElement('div', {
+                                key: 'price',
+                                className: 'text-2xl font-bold text-green-600 mb-3'
+                            }, `₹${formatNumber(product.price)}`),
+                            
+                            React.createElement('div', {
+                                key: 'details',
+                                className: 'grid grid-cols-2 gap-2 text-sm'
+                            }, [
+                                React.createElement('div', { 
+                                    key: 'platform',
+                                    className: 'flex justify-between'
+                                }, [
+                                    React.createElement('span', { key: 'label', className: 'text-gray-600' }, 'Platform:'),
+                                    React.createElement('span', { key: 'value', className: 'font-medium' }, product.platform || 'Unknown')
+                                ]),
+                                React.createElement('div', { 
+                                    key: 'location',
+                                    className: 'flex justify-between'
+                                }, [
+                                    React.createElement('span', { key: 'label', className: 'text-gray-600' }, 'Location:'),
+                                    React.createElement('span', { key: 'value', className: 'font-medium' }, product.location || 'Not specified')
+                                ])
+                            ])
+                        ])
+                    ])
+                ])
+            ]);
+        };
+
+        // Metrics Panel Component
+        const MetricsPanel = ({ metrics, product }) => {
+            const targetPrice = product?.price || 0;
+            const savings = Math.max(0, targetPrice - (metrics.currentOffer || 0));
+            
+            return React.createElement('div', {
+                className: 'space-y-4'
+            }, [
+                React.createElement('div', {
+                    key: 'progress',
+                    className: 'bg-gray-50 rounded-lg p-4 border border-gray-200'
+                }, [
+                    React.createElement('div', {
+                        key: 'label',
+                        className: 'text-xs font-medium text-gray-600 uppercase tracking-wide mb-2'
+                    }, 'Negotiation Progress'),
+                    
+                    React.createElement('div', {
+                        key: 'value',
+                        className: 'text-lg font-bold text-gray-900 mb-2'
+                    }, `${metrics.negotiationProgress}%`),
+                    
+                    React.createElement('div', {
+                        key: 'bar',
+                        className: 'w-full h-2 bg-gray-200 rounded-full overflow-hidden'
+                    }, [
+                        React.createElement('div', {
+                            key: 'fill',
+                            className: 'h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-300',
+                            style: { width: `${metrics.negotiationProgress}%` }
+                        })
+                    ])
+                ]),
+
+                React.createElement('div', {
+                    key: 'offer',
+                    className: 'bg-gray-50 rounded-lg p-4 border border-gray-200'
+                }, [
+                    React.createElement('div', {
+                        key: 'label',
+                        className: 'text-xs font-medium text-gray-600 uppercase tracking-wide mb-1'
+                    }, 'Current Offer'),
+                    
+                    React.createElement('div', {
+                        key: 'value',
+                        className: 'text-lg font-bold text-gray-900'
+                    }, `₹${formatNumber(metrics.currentOffer)}`)
+                ]),
+
+                React.createElement('div', {
+                    key: 'savings',
+                    className: 'bg-gray-50 rounded-lg p-4 border border-gray-200'
+                }, [
+                    React.createElement('div', {
+                        key: 'label',
+                        className: 'text-xs font-medium text-gray-600 uppercase tracking-wide mb-1'
+                    }, 'Potential Savings'),
+                    
+                    React.createElement('div', {
+                        key: 'value',
+                        className: 'text-lg font-bold text-green-600'
+                    }, `₹${formatNumber(savings)}`)
+                ]),
+
+                React.createElement('div', {
+                    key: 'confidence',
+                    className: 'bg-gray-50 rounded-lg p-4 border border-gray-200'
+                }, [
+                    React.createElement('div', {
+                        key: 'label',
+                        className: 'text-xs font-medium text-gray-600 uppercase tracking-wide mb-1'
+                    }, 'AI Confidence'),
+                    
+                    React.createElement('div', {
+                        key: 'value',
+                        className: 'text-lg font-bold text-gray-900'
+                    }, metrics.aiConfidence)
+                ])
+            ]);
+        };
+
+        // Chat Interface Component
+        const ChatInterface = ({ messages, isNegotiating, onSendMessage, sessionId }) => {
+            const [messageInput, setMessageInput] = useState('');
+            const messagesEndRef = useRef(null);
+
+            useEffect(() => {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }, [messages]);
+
+            const handleSendMessage = async () => {
+                if (!messageInput.trim() || !sessionId) return;
+                
+                const message = messageInput.trim();
+                setMessageInput('');
+                
+                // Add user message immediately
+                onSendMessage({ type: 'user', content: message });
+                
+                try {
+                    await apiService.sendMessage(sessionId, message);
+                } catch (error) {
+                    console.error('Error sending message:', error);
+                    onSendMessage({ type: 'system', content: 'Failed to send message. Please try again.' });
+                }
+            };
+
+            const handleKeyPress = (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                }
+            };
+
+            if (!isNegotiating && messages.length === 0) {
+                return React.createElement('div', {
+                    className: 'flex-1 flex items-center justify-center p-8'
+                }, [
+                    React.createElement('div', {
+                        key: 'empty-state',
+                        className: 'text-center max-w-md'
+                    }, [
+                        React.createElement('div', {
+                            key: 'icon',
+                            className: 'w-24 h-24 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl'
+                        }, '💬'),
+                        
+                        React.createElement('h3', {
+                            key: 'title',
+                            className: 'text-xl font-semibold text-gray-900 mb-3'
+                        }, 'Ready to Start Negotiating'),
+                        
+                        React.createElement('p', {
+                            key: 'description',
+                            className: 'text-gray-600 leading-relaxed'
+                        }, 'Configure your negotiation parameters in the sidebar and start your AI-powered marketplace negotiation session.')
+                    ])
+                ]);
+            }
+
+            return React.createElement('div', {
+                className: 'flex-1 flex flex-col overflow-hidden'
+            }, [
+                React.createElement('div', {
+                    key: 'messages',
+                    className: 'flex-1 overflow-y-auto scrollbar-hide p-6'
+                }, [
+                    ...messages.map((message, index) => 
+                        React.createElement(MessageBubble, { key: message.id || index, message })
+                    ),
+                    
+                    React.createElement('div', { key: 'end-ref', ref: messagesEndRef })
+                ]),
+                
+                isNegotiating && React.createElement('div', {
+                    key: 'input-area',
+                    className: 'border-t border-gray-200 p-4 bg-white'
+                }, [
+                    React.createElement('div', {
+                        key: 'input-row',
+                        className: 'flex gap-3'
+                    }, [
+                        React.createElement('textarea', {
+                            key: 'input',
+                            className: 'flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none',
+                            placeholder: 'Type your message or let AI handle the negotiation...',
+                            rows: 2,
+                            value: messageInput,
+                            onChange: (e) => setMessageInput(e.target.value),
+                            onKeyPress: handleKeyPress
+                        }),
+                        
+                        React.createElement('button', {
+                            key: 'send-btn',
+                            className: 'px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors',
+                            onClick: handleSendMessage,
+                            disabled: !messageInput.trim()
+                        }, 'Send')
+                    ])
+                ])
+            ]);
+        };
+
+        // Sidebar Component
+        const Sidebar = ({ formData, onFormDataChange, onStartNegotiation, onStartDemo, onReset, isNegotiating, sessionInfo }) => {
+            const [isLoading, setIsLoading] = useState(false);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                
+                if (!formData.productUrl || !formData.targetPrice || !formData.maxBudget) {
+                    showToast('Please fill in all required fields', 'error');
+                    return;
+                }
+
+                if (parseInt(formData.targetPrice) >= parseInt(formData.maxBudget)) {
+                    showToast('Target price must be less than maximum budget', 'error');
+                    return;
+                }
+
+                setIsLoading(true);
+                try {
+                    await onStartNegotiation({
+                        product_url: formData.productUrl,
+                        target_price: parseInt(formData.targetPrice),
+                        max_budget: parseInt(formData.maxBudget),
+                        approach: formData.approach,
+                        timeline: formData.timeline,
+                        special_requirements: formData.specialRequirements || undefined
+                    });
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            const handleDemo = async () => {
+                const targetPrice = parseInt(formData.targetPrice) || 40000;
+                const maxBudget = parseInt(formData.maxBudget) || 60000;
+
+                if (targetPrice >= maxBudget) {
+                    showToast('Target price must be less than maximum budget', 'error');
+                    return;
+                }
+
+                setIsLoading(true);
+                try {
+                    await onStartDemo({
+                        product_url: 'demo://laptop-macbook-air-m2',
+                        target_price: targetPrice,
+                        max_budget: maxBudget,
+                        approach: formData.approach,
+                        timeline: formData.timeline,
+                        special_requirements: formData.specialRequirements || 'Demo negotiation'
+                    });
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            return React.createElement('div', {
+                className: 'w-96 bg-gradient-to-b from-gray-800 to-gray-900 text-white flex flex-col overflow-hidden'
+            }, [
+                // Header
+                React.createElement('div', {
+                    key: 'header',
+                    className: 'p-6 border-b border-gray-700'
+                }, [
+                    React.createElement('div', {
+                        key: 'logo',
+                        className: 'mb-6'
+                    }, [
+                        React.createElement('h1', {
+                            key: 'title',
+                            className: 'text-2xl font-bold mb-1'
+                        }, 'NegotiBot AI'),
+                        React.createElement('p', {
+                            key: 'subtitle',
+                            className: 'text-gray-400 text-sm'
+                        }, 'Professional Negotiation Assistant')
+                    ])
+                ]),
+
+                // Form
+                React.createElement('div', {
+                    key: 'form-section',
+                    className: 'flex-1 overflow-y-auto scrollbar-hide p-6'
+                }, [
+                    React.createElement('form', {
+                        key: 'form',
+                        onSubmit: handleSubmit,
+                        className: 'space-y-6'
+                    }, [
+                        React.createElement('div', {
+                            key: 'section-title',
+                            className: 'text-lg font-semibold mb-4'
+                        }, 'New Negotiation'),
+
+                        // Product URL
+                        React.createElement('div', { key: 'url-field' }, [
+                            React.createElement('label', {
+                                className: 'block text-sm font-medium mb-2'
+                            }, 'Marketplace URL'),
+                            React.createElement('input', {
+                                type: 'url',
+                                className: 'w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white placeholder-gray-400',
+                                placeholder: 'Paste product URL from OLX, Facebook Marketplace, etc.',
+                                value: formData.productUrl,
+                                onChange: (e) => onFormDataChange({ productUrl: e.target.value }),
+                                disabled: isNegotiating || isLoading,
+                                required: true
+                            })
+                        ]),
+
+                        // Price fields
+                        React.createElement('div', {
+                            key: 'price-fields',
+                            className: 'grid grid-cols-2 gap-4'
+                        }, [
+                            React.createElement('div', { key: 'target' }, [
+                                React.createElement('label', {
+                                    className: 'block text-sm font-medium mb-2'
+                                }, 'Target Price (₹)'),
+                                React.createElement('input', {
+                                    type: 'number',
+                                    className: 'w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white placeholder-gray-400',
+                                    placeholder: '50,000',
+                                    min: '1',
+                                    value: formData.targetPrice,
+                                    onChange: (e) => onFormDataChange({ targetPrice: e.target.value }),
+                                    disabled: isNegotiating || isLoading,
+                                    required: true
+                                })
+                            ]),
+                            React.createElement('div', { key: 'budget' }, [
+                                React.createElement('label', {
+                                    className: 'block text-sm font-medium mb-2'
+                                }, 'Max Budget (₹)'),
+                                React.createElement('input', {
+                                    type: 'number',
+                                    className: 'w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white placeholder-gray-400',
+                                    placeholder: '70,000',
+                                    min: '1',
+                                    value: formData.maxBudget,
+                                    onChange: (e) => onFormDataChange({ maxBudget: e.target.value }),
+                                    disabled: isNegotiating || isLoading,
+                                    required: true
+                                })
+                            ])
+                        ]),
+
+                        // Negotiation Style
+                        React.createElement('div', { key: 'approach' }, [
+                            React.createElement('label', {
+                                className: 'block text-sm font-medium mb-2'
+                            }, 'Negotiation Style'),
+                            React.createElement('select', {
+                                className: 'w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white',
+                                value: formData.approach,
+                                onChange: (e) => onFormDataChange({ approach: e.target.value }),
+                                disabled: isNegotiating || isLoading
+                            }, [
+                                React.createElement('option', { key: 'diplomatic', value: 'diplomatic' }, 'Diplomatic - Balanced & Professional'),
+                                React.createElement('option', { key: 'assertive', value: 'assertive' }, 'Assertive - Direct & Confident'),
+                                React.createElement('option', { key: 'considerate', value: 'considerate' }, 'Considerate - Empathetic & Budget-conscious')
+                            ])
+                        ]),
+
+                        // Timeline
+                        React.createElement('div', { key: 'timeline' }, [
+                            React.createElement('label', {
+                                className: 'block text-sm font-medium mb-2'
+                            }, 'Purchase Timeline'),
+                            React.createElement('select', {
+                                className: 'w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white',
+                                value: formData.timeline,
+                                onChange: (e) => onFormDataChange({ timeline: e.target.value }),
+                                disabled: isNegotiating || isLoading
+                            }, [
+                                React.createElement('option', { key: 'flexible', value: 'flexible' }, 'Flexible - No specific timeline'),
+                                React.createElement('option', { key: 'week', value: 'week' }, 'Within a week'),
+                                React.createElement('option', { key: 'urgent', value: 'urgent' }, 'Urgent - ASAP')
+                            ])
+                        ]),
+
+                        // Special Requirements
+                        React.createElement('div', { key: 'requirements' }, [
+                            React.createElement('label', {
+                                className: 'block text-sm font-medium mb-2'
+                            }, 'Additional Requirements'),
+                            React.createElement('input', {
+                                type: 'text',
+                                className: 'w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white placeholder-gray-400',
+                                placeholder: 'Warranty, delivery, accessories (optional)',
+                                value: formData.specialRequirements,
+                                onChange: (e) => onFormDataChange({ specialRequirements: e.target.value }),
+                                disabled: isNegotiating || isLoading
+                            })
+                        ]),
+
+                        // Buttons
+                        React.createElement('div', {
+                            key: 'buttons',
+                            className: 'space-y-3'
+                        }, [
+                            React.createElement('button', {
+                                key: 'start-btn',
+                                type: 'submit',
+                                className: `w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center justify-center gap-2 ${(isNegotiating || isLoading) ? 'opacity-50 cursor-not-allowed' : ''}`,
+                                disabled: isNegotiating || isLoading
+                            }, [
+                                isLoading ? [
+                                    React.createElement('div', {
+                                        key: 'spinner',
+                                        className: 'w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin'
+                                    }),
+                                    React.createElement('span', { key: 'text' }, 'Analyzing...')
+                                ] : [
+                                    React.createElement('span', { key: 'text' }, 'Analyze Product & Start Negotiation')
+                                ]
+                            ]),
+
+                            React.createElement('button', {
+                                key: 'demo-btn',
+                                type: 'button',
+                                className: `w-full px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 ${(isNegotiating || isLoading) ? 'opacity-50 cursor-not-allowed' : ''}`,
+                                onClick: handleDemo,
+                                disabled: isNegotiating || isLoading
+                            }, 'Try Demo Mode (No URL Required)'),
+
+                            isNegotiating && React.createElement('button', {
+                                key: 'reset-btn',
+                                type: 'button',
+                                className: 'w-full px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-all duration-200',
+                                onClick: onReset
+                            }, 'Reset Session')
+                        ])
+                    ])
+                ]),
+
+                // Session Status
+                sessionInfo && React.createElement('div', {
+                    key: 'session-status',
+                    className: 'p-4 bg-gray-800 border-t border-gray-700'
+                }, [
+                    React.createElement('div', {
+                        key: 'status-content',
+                        className: 'text-sm'
+                    }, [
+                        React.createElement('div', {
+                            key: 'title',
+                            className: 'font-medium text-blue-400 mb-1'
+                        }, 'Session Active'),
+                        React.createElement('div', {
+                            key: 'info',
+                            className: 'text-gray-300'
+                        }, sessionInfo)
+                    ])
+                ])
+            ]);
+        };
+
+        // Main App Component
+        // Authentication Modal Component
+        const AuthModal = ({ isOpen, mode, onClose, onLogin, onRegister, onSwitchMode }) => {
+            const [formData, setFormData] = useState({
+                username: '',
+                email: '',
+                password: '',
+                full_name: '',
+                phone: '',
+                role: 'buyer'
+            });
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                
+                if (mode === 'login') {
+                    await onLogin({
+                        username: formData.username,
+                        password: formData.password
+                    });
+                } else {
+                    await onRegister(formData);
+                }
+            };
+
+            const handleInputChange = (field, value) => {
+                setFormData(prev => ({ ...prev, [field]: value }));
+            };
+
+            if (!isOpen) return null;
+
+            return React.createElement('div', {
+                className: 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50',
+                onClick: onClose
+            }, [
+                React.createElement('div', {
+                    key: 'modal',
+                    className: 'bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-6',
+                    onClick: (e) => e.stopPropagation()
+                }, [
+                    React.createElement('div', {
+                        key: 'header',
+                        className: 'flex items-center justify-between mb-6'
+                    }, [
+                        React.createElement('h2', {
+                            key: 'title',
+                            className: 'text-2xl font-bold text-gray-900'
+                        }, mode === 'login' ? 'Login' : 'Register'),
+                        
+                        React.createElement('button', {
+                            key: 'close',
+                            className: 'text-gray-400 hover:text-gray-600',
+                            onClick: onClose
+                        }, '✕')
+                    ]),
+
+                    React.createElement('form', {
+                        key: 'form',
+                        onSubmit: handleSubmit,
+                        className: 'space-y-4'
+                    }, [
+                        React.createElement('div', { key: 'username' }, [
+                            React.createElement('label', {
+                                key: 'label',
+                                className: 'block text-sm font-medium text-gray-700 mb-1'
+                            }, 'Username'),
+                            React.createElement('input', {
+                                key: 'input',
+                                type: 'text',
+                                value: formData.username,
+                                onChange: (e) => handleInputChange('username', e.target.value),
+                                className: 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                                required: true
+                            })
+                        ]),
+
+                        React.createElement('div', { key: 'role' }, [
+                            React.createElement('label', {
+                                key: 'label',
+                                className: 'block text-sm font-medium text-gray-700 mb-1'
+                            }, 'I am a:'),
+                            React.createElement('select', {
+                                key: 'select',
+                                value: formData.role,
+                                onChange: (e) => handleInputChange('role', e.target.value),
+                                className: 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                                required: true
+                            }, [
+                                React.createElement('option', {
+                                    key: 'buyer',
+                                    value: 'buyer'
+                                }, 'Buyer - I want to negotiate purchases'),
+                                React.createElement('option', {
+                                    key: 'seller',
+                                    value: 'seller'
+                                }, 'Seller - I want to list my products')
+                            ])
+                        ]),
+
+                        mode === 'register' && React.createElement('div', { key: 'email' }, [
+                            React.createElement('label', {
+                                key: 'label',
+                                className: 'block text-sm font-medium text-gray-700 mb-1'
+                            }, 'Email'),
+                            React.createElement('input', {
+                                key: 'input',
+                                type: 'email',
+                                value: formData.email,
+                                onChange: (e) => handleInputChange('email', e.target.value),
+                                className: 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                                required: true
+                            })
+                        ]),
+
+                        React.createElement('div', { key: 'password' }, [
+                            React.createElement('label', {
+                                key: 'label',
+                                className: 'block text-sm font-medium text-gray-700 mb-1'
+                            }, 'Password'),
+                            React.createElement('input', {
+                                key: 'input',
+                                type: 'password',
+                                value: formData.password,
+                                onChange: (e) => handleInputChange('password', e.target.value),
+                                className: 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                                required: true
+                            })
+                        ]),
+
+                        mode === 'register' && React.createElement('div', { key: 'fullname' }, [
+                            React.createElement('label', {
+                                key: 'label',
+                                className: 'block text-sm font-medium text-gray-700 mb-1'
+                            }, 'Full Name'),
+                            React.createElement('input', {
+                                key: 'input',
+                                type: 'text',
+                                value: formData.full_name,
+                                onChange: (e) => handleInputChange('full_name', e.target.value),
+                                className: 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                                required: true
+                            })
+                        ]),
+
+                        mode === 'register' && React.createElement('div', { key: 'phone' }, [
+                            React.createElement('label', {
+                                key: 'label',
+                                className: 'block text-sm font-medium text-gray-700 mb-1'
+                            }, 'Phone (Optional)'),
+                            React.createElement('input', {
+                                key: 'input',
+                                type: 'tel',
+                                value: formData.phone,
+                                onChange: (e) => handleInputChange('phone', e.target.value),
+                                className: 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+                            })
+                        ]),
+
+                        React.createElement('button', {
+                            key: 'submit',
+                            type: 'submit',
+                            className: 'w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 font-medium'
+                        }, mode === 'login' ? 'Login' : 'Register')
+                    ]),
+
+                    React.createElement('div', {
+                        key: 'switch',
+                        className: 'mt-4 text-center'
+                    }, [
+                        React.createElement('span', {
+                            key: 'text',
+                            className: 'text-gray-600'
+                        }, mode === 'login' ? "Don't have an account? " : 'Already have an account? '),
+                        
+                        React.createElement('button', {
+                            key: 'link',
+                            type: 'button',
+                            onClick: onSwitchMode,
+                            className: 'text-blue-600 hover:text-blue-700 font-medium'
+                        }, mode === 'login' ? 'Register' : 'Login')
+                    ])
+                ])
+            ]);
+        };
+
+        const App = () => {
+            const { 
+                state, 
+                updateState, 
+                updateFormData, 
+                updateMetrics, 
+                addMessage, 
+                reset 
+            } = useAppState();
+
+            // Authentication state
+            const [user, setUser] = useState(null);
+            const [showAuthModal, setShowAuthModal] = useState(false);
+            const [authMode, setAuthMode] = useState('login'); // 'login' or 'register'
+
+            // Check for existing session on load
+            useEffect(() => {
+                const savedUser = localStorage.getItem('negotibot_user');
+                const savedToken = localStorage.getItem('negotibot_token');
+                
+                if (savedUser && savedToken) {
+                    setUser(JSON.parse(savedUser));
+                }
+            }, []);
+
+            // Authentication functions
+            const handleLogin = async (credentials) => {
+                try {
+                    const response = await apiService.login(credentials);
+                    
+                    if (response.success) {
+                        setUser(response.user);
+                        localStorage.setItem('negotibot_user', JSON.stringify(response.user));
+                        localStorage.setItem('negotibot_token', response.token);
+                        localStorage.setItem('negotibot_session', response.session_id);
+                        
+                        setShowAuthModal(false);
+                        showToast(`Welcome back, ${response.user.full_name}!`, 'success');
+                    } else {
+                        showToast(response.message || 'Login failed', 'error');
+                    }
+                } catch (error) {
+                    console.error('Login error:', error);
+                    showToast('Login failed. Please try again.', 'error');
+                }
+            };
+
+            const handleRegister = async (userData) => {
+                try {
+                    const response = await apiService.register(userData);
+                    
+                    if (response.success) {
+                        showToast('Registration successful! Please login.', 'success');
+                        setAuthMode('login');
+                    } else {
+                        showToast(response.message || 'Registration failed', 'error');
+                    }
+                } catch (error) {
+                    console.error('Registration error:', error);
+                    showToast('Registration failed. Please try again.', 'error');
+                }
+            };
+
+            const handleLogout = async () => {
+                try {
+                    const sessionId = localStorage.getItem('negotibot_session');
+                    if (sessionId) {
+                        await apiService.logout({ session_id: sessionId });
+                    }
+                    
+                    setUser(null);
+                    localStorage.removeItem('negotibot_user');
+                    localStorage.removeItem('negotibot_token');
+                    localStorage.removeItem('negotibot_session');
+                    
+                    showToast('Logged out successfully', 'success');
+                } catch (error) {
+                    console.error('Logout error:', error);
+                    // Still clear local data even if server request fails
+                    setUser(null);
+                    localStorage.removeItem('negotibot_user');
+                    localStorage.removeItem('negotibot_token');
+                    localStorage.removeItem('negotibot_session');
+                }
+            };
+
+            // Handle WebSocket messages
+            const handleWebSocketMessage = (data) => {
+                switch (data.type) {
+                    case 'ai_message':
+                    case 'negotiation_update':
+                        addMessage({
+                            type: 'ai',
+                            content: data.message,
+                            phase: data.phase,
+                            strategy: data.strategy
+                        });
+                        
+                        // Update metrics if available
+                        if (data.progress !== undefined || data.current_offer !== undefined) {
+                            updateMetrics({
+                                negotiationProgress: data.progress || state.metrics.negotiationProgress,
+                                currentOffer: data.current_offer || state.metrics.currentOffer,
+                                aiConfidence: data.confidence || state.metrics.aiConfidence
+                            });
+                        }
+                        break;
+
+                    case 'seller_message':
+                        addMessage({
+                            type: 'seller',
+                            content: data.message
+                        });
+                        break;
+
+                    case 'negotiation_complete':
+                        updateState({ isNegotiating: false });
+                        addMessage({
+                            type: 'system',
+                            content: data.message || 'Negotiation completed!',
+                            success: data.success,
+                            finalPrice: data.final_price
+                        });
+                        
+                        if (data.success) {
+                            showToast(`Negotiation successful! Final price: ₹${formatNumber(data.final_price)}`, 'success');
+                        } else {
+                            showToast('Negotiation was not successful', 'warning');
+                        }
+                        break;
+
+                    case 'system':
+                        addMessage(data);
+                        break;
+
+                    default:
+                        if (data.content || data.message) {
+                            addMessage(data);
+                        }
+                        console.log('Unknown message type:', data.type);
+                }
+            };
+
+            const { isConnected } = useWebSocket(state.sessionId, handleWebSocketMessage);
+
+            useEffect(() => {
+                updateState({ isConnected });
+            }, [isConnected]);
+
+            // Handle start negotiation
+            const handleStartNegotiation = async (negotiationData) => {
+                try {
+                    // Check if user is authenticated
+                    if (!user) {
+                        showToast('Please login as a buyer to start negotiation', 'error');
+                        setShowAuthModal(true);
+                        setAuthMode('login');
+                        return;
+                    }
+
+                    // Check if user is a buyer
+                    if (user.role !== 'buyer') {
+                        showToast('Only buyers can start negotiations', 'error');
+                        return;
+                    }
+
+                    updateState({ connectionStatus: 'connecting' });
+                    
+                    const response = await apiService.startNegotiation(negotiationData);
+
+                    if (response.success) {
+                        updateState({
+                            sessionId: response.session.session_id,
+                            product: response.product_info,
+                            marketAnalysis: response.market_analysis,
+                            isNegotiating: true
+                        });
+
+                        // Initialize metrics
+                        const product = response.product_info;
+                        updateMetrics({
+                            currentOffer: product.price,
+                            savingsPotential: Math.max(0, product.price - negotiationData.target_price),
+                            aiConfidence: 'High'
+                        });
+                        
+                        showToast('Negotiation started successfully!', 'success');
+                    } else {
+                        showToast(response.message || 'Failed to start negotiation', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error starting negotiation:', error);
+                    showToast(error.message || 'Failed to start negotiation', 'error');
+                    updateState({ connectionStatus: 'error' });
+                }
+            };
+
+            // Handle start demo
+            const handleStartDemo = async (demoData) => {
+                try {
+                    // Check if user is authenticated
+                    if (!user) {
+                        showToast('Please login as a buyer to start negotiation', 'error');
+                        setShowAuthModal(true);
+                        setAuthMode('login');
+                        return;
+                    }
+
+                    // Check if user is a buyer
+                    if (user.role !== 'buyer') {
+                        showToast('Only buyers can start negotiations', 'error');
+                        return;
+                    }
+
+                    updateState({ connectionStatus: 'connecting' });
+                    
+                    const response = await apiService.startDemo(demoData);
+
+                    if (response.success) {
+                        updateState({
+                            sessionId: response.session.session_id,
+                            product: response.product_info,
+                            marketAnalysis: response.market_analysis,
+                            isNegotiating: true
+                        });
+
+                        // Initialize metrics
+                        const product = response.product_info;
+                        updateMetrics({
+                            currentOffer: product.price,
+                            savingsPotential: Math.max(0, product.price - demoData.target_price),
+                            aiConfidence: 'High'
+                        });
+                        
+                        showToast('Demo negotiation started successfully!', 'success');
+                    } else {
+                        showToast('Failed to start demo negotiation', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error starting demo:', error);
+                    showToast('Failed to start demo negotiation', 'error');
+                    updateState({ connectionStatus: 'error' });
+                }
+            };
+
+            // Handle reset
+            const handleReset = () => {
+                if (confirm('Are you sure you want to reset the current session?')) {
+                    reset();
+                    showToast('Session reset successfully', 'success');
+                }
+            };
+
+            const sessionInfo = state.sessionId ? 
+                `Session ID: ${state.sessionId.substring(0, 8)}...` : 
+                null;
+
+            return React.createElement('div', {
+                className: 'min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50'
+            }, [
+                React.createElement('div', {
+                    key: 'container',
+                    className: 'flex h-screen max-w-7xl mx-auto bg-white shadow-2xl'
+                }, [
+                    // Sidebar
+                    React.createElement(Sidebar, {
+                        key: 'sidebar',
+                        formData: state.formData,
+                        onFormDataChange: updateFormData,
+                        onStartNegotiation: handleStartNegotiation,
+                        onStartDemo: handleStartDemo,
+                        onReset: handleReset,
+                        isNegotiating: state.isNegotiating,
+                        sessionInfo
+                    }),
+
+                    // Main Content
+                    React.createElement('div', {
+                        key: 'main',
+                        className: 'flex-1 flex flex-col overflow-hidden'
+                    }, [
+                        // Header
+                        React.createElement('header', {
+                            key: 'header',
+                            className: 'bg-white border-b border-gray-200 px-8 py-6'
+                        }, [
+                            React.createElement('div', {
+                                key: 'header-content',
+                                className: 'flex items-center justify-between'
+                            }, [
+                                React.createElement('div', { key: 'title' }, [
+                                    React.createElement('h1', {
+                                        key: 'heading',
+                                        className: 'text-2xl font-bold text-gray-900 flex items-center gap-3'
+                                    }, [
+                                        React.createElement('div', {
+                                            key: 'icon',
+                                            className: 'p-2 bg-blue-600 rounded-lg text-white text-xl'
+                                        }, '🤖'),
+                                        'NegotiBot AI'
+                                    ]),
+                                    
+                                    React.createElement('p', {
+                                        key: 'subtitle',
+                                        className: 'text-gray-600 mt-1'
+                                    }, state.isNegotiating ? 
+                                        `Negotiating ${state.product?.title || 'product'}` : 
+                                        'Ready to start your next negotiation'
+                                    )
+                                ]),
+                                
+                                React.createElement('div', {
+                                    key: 'header-right',
+                                    className: 'flex items-center gap-6'
+                                }, [
+                                    React.createElement('div', {
+                                        key: 'status',
+                                        className: 'flex items-center gap-4 text-sm text-gray-500'
+                                    }, [
+                                        React.createElement('div', { key: 'ai', className: 'flex items-center gap-2' }, ['⚡', 'AI-Powered']),
+                                        React.createElement('div', { key: 'secure', className: 'flex items-center gap-2' }, ['🛡️', 'Secure']),
+                                        React.createElement('div', { key: 'smart', className: 'flex items-center gap-2' }, ['📈', 'Smart Analytics'])
+                                    ]),
+
+                                    // Authentication section
+                                    user ? React.createElement('div', {
+                                        key: 'user-menu',
+                                        className: 'flex items-center gap-3'
+                                    }, [
+                                        React.createElement('span', {
+                                            key: 'greeting',
+                                            className: 'text-sm text-gray-600'
+                                        }, `Welcome, ${user.full_name || user.username}!`),
+                                        
+                                        React.createElement('button', {
+                                            key: 'logout',
+                                            onClick: handleLogout,
+                                            className: 'px-4 py-2 text-sm bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors'
+                                        }, 'Logout')
+                                    ]) : React.createElement('div', {
+                                        key: 'auth-buttons',
+                                        className: 'flex items-center gap-2'
+                                    }, [
+                                        React.createElement('button', {
+                                            key: 'login',
+                                            onClick: () => {
+                                                setAuthMode('login');
+                                                setShowAuthModal(true);
+                                            },
+                                            className: 'px-4 py-2 text-sm text-blue-600 hover:text-blue-700 font-medium'
+                                        }, 'Login'),
+                                        
+                                        React.createElement('button', {
+                                            key: 'register',
+                                            onClick: () => {
+                                                setAuthMode('register');
+                                                setShowAuthModal(true);
+                                            },
+                                            className: 'px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors'
+                                        }, 'Register')
+                                    ])
+                                ])
+                            ])
+                        ]),
+
+                        // Content Area
+                        React.createElement('div', {
+                            key: 'content',
+                            className: 'flex-1 flex overflow-hidden'
+                        }, [
+                            // Chat Interface
+                            React.createElement('div', {
+                                key: 'chat-area',
+                                className: 'flex-1 flex flex-col'
+                            }, [
+                                React.createElement(ProductInfo, {
+                                    key: 'product-info',
+                                    product: state.product,
+                                    isVisible: !!state.product
+                                }),
+                                
+                                React.createElement(ChatInterface, {
+                                    key: 'chat',
+                                    messages: state.messages,
+                                    isNegotiating: state.isNegotiating,
+                                    onSendMessage: addMessage,
+                                    sessionId: state.sessionId
+                                })
+                            ]),
+
+                            // Analytics Panel
+                            state.isNegotiating && React.createElement('div', {
+                                key: 'analytics',
+                                className: 'w-80 border-l border-gray-200 bg-white overflow-y-auto'
+                            }, [
+                                React.createElement('div', {
+                                    key: 'panel-header',
+                                    className: 'p-6 border-b border-gray-200'
+                                }, [
+                                    React.createElement('h3', {
+                                        key: 'title',
+                                        className: 'text-lg font-semibold text-gray-900'
+                                    }, 'Product Analysis'),
+                                    React.createElement('p', {
+                                        key: 'subtitle',
+                                        className: 'text-sm text-gray-600'
+                                    }, 'Market intelligence & insights')
+                                ]),
+
+                                React.createElement('div', {
+                                    key: 'metrics',
+                                    className: 'p-6'
+                                }, [
+                                    React.createElement(MetricsPanel, {
+                                        key: 'metrics-panel',
+                                        metrics: state.metrics,
+                                        product: state.product
+                                    })
+                                ])
+                            ])
+                        ]),
+                        
+                        // Footer
+                        React.createElement('footer', {
+                            key: 'footer',
+                            className: 'bg-gray-50 border-t border-gray-200 px-8 py-4'
+                        }, [
+                            React.createElement('div', {
+                                key: 'footer-content',
+                                className: 'flex items-center justify-between text-sm text-gray-500'
+                            }, [
+                                React.createElement('div', { 
+                                    key: 'copyright' 
+                                }, '© 2025 NegotiBot AI. Professional marketplace negotiation assistant.'),
+                                
+                                React.createElement('div', {
+                                    key: 'system-status',
+                                    className: 'flex items-center gap-2'
+                                }, [
+                                    React.createElement('div', {
+                                        key: 'indicator',
+                                        className: `w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`
+                                    }),
+                                    React.createElement('span', { 
+                                        key: 'text' 
+                                    }, isConnected ? 'Connected' : 'System Online')
+                                ])
+                            ])
+                        ])
+                    ])
+                ]),
+
+                // Authentication Modal
+                React.createElement(AuthModal, {
+                    key: 'auth-modal',
+                    isOpen: showAuthModal,
+                    mode: authMode,
+                    onClose: () => setShowAuthModal(false),
+                    onLogin: handleLogin,
+                    onRegister: handleRegister,
+                    onSwitchMode: () => setAuthMode(authMode === 'login' ? 'register' : 'login')
+                })
+            ]);
+        };
+
+        // Render the app
+        ReactDOM.render(React.createElement(App), document.getElementById('root'));
+    </script>
+</body>
+</html>

@@ -1,0 +1,137 @@
+[
+  {
+    "id": "prod_001",
+    "title": "iPhone 13 - 128GB Blue",
+    "description": "Excellent condition iPhone 13 with original box, charger, and all accessories. No scratches, battery health 95%. Used for 6 months only.",
+    "price": 45000,
+    "original_price": 65000,
+    "seller_name": "Rajesh Kumar",
+    "seller_contact": "9876543210",
+    "location": "Sector 18, Noida",
+    "url": "https://olx.in/ad/iphone-13-128gb-blue-excellent-condition-ID1234567",
+    "platform": "OLX",
+    "category": "Mobile Phones",
+    "condition": "Excellent",
+    "images": [
+      "https://example.com/images/iphone13_1.jpg",
+      "https://example.com/images/iphone13_2.jpg"
+    ],
+    "features": [
+      "128GB Storage",
+      "Blue Color",
+      "Original Box",
+      "95% Battery Health",
+      "No Physical Damage"
+    ],
+    "posted_date": "2025-09-20T10:30:00Z",
+    "is_available": true
+  },
+  {
+    "id": "prod_002",
+    "title": "Samsung Galaxy S23 Ultra - 256GB Black",
+    "description": "Like new Samsung Galaxy S23 Ultra with S Pen. Purchased 3 months ago, rarely used. All original accessories included.",
+    "price": 75000,
+    "original_price": 95000,
+    "seller_name": "Priya Sharma",
+    "seller_contact": "9123456789",
+    "location": "Koramangala, Bangalore",
+    "url": "https://olx.in/ad/samsung-s23-ultra-256gb-black-ID2345678",
+    "platform": "OLX",
+    "category": "Mobile Phones",
+    "condition": "Like New",
+    "images": [
+      "https://example.com/images/s23ultra_1.jpg",
+      "https://example.com/images/s23ultra_2.jpg"
+    ],
+    "features": [
+      "256GB Storage",
+      "Phantom Black",
+      "S Pen Included",
+      "Original Packaging",
+      "Warranty Valid"
+    ],
+    "posted_date": "2025-09-21T14:15:00Z",
+    "is_available": true
+  },
+  {
+    "id": "prod_003",
+    "title": "MacBook Air M2 - 13 inch Silver",
+    "description": "MacBook Air M2 chip, 8GB RAM, 256GB SSD. Perfect for students and professionals. Barely used, pristine condition.",
+    "price": 85000,
+    "original_price": 115000,
+    "seller_name": "Amit Patel",
+    "seller_contact": "9234567890",
+    "location": "Andheri West, Mumbai",
+    "url": "https://facebook.com/marketplace/macbook-air-m2-silver-ID3456789",
+    "platform": "Facebook Marketplace",
+    "category": "Laptops",
+    "condition": "Excellent",
+    "images": [
+      "https://example.com/images/macbook_1.jpg",
+      "https://example.com/images/macbook_2.jpg"
+    ],
+    "features": [
+      "M2 Chip",
+      "8GB RAM",
+      "256GB SSD",
+      "13-inch Display",
+      "Silver Color"
+    ],
+    "posted_date": "2025-09-19T09:45:00Z",
+    "is_available": true
+  },
+  {
+    "id": "prod_004",
+    "title": "Sony PlayStation 5 Console",
+    "description": "PlayStation 5 console with extra DualSense controller. Includes popular games: Spider-Man, God of War. Excellent condition.",
+    "price": 42000,
+    "original_price": 50000,
+    "seller_name": "Rohit Singh",
+    "seller_contact": "9345678901",
+    "location": "CP, New Delhi",
+    "url": "https://olx.in/ad/playstation-5-console-extra-controller-ID4567890",
+    "platform": "OLX",
+    "category": "Gaming",
+    "condition": "Good",
+    "images": [
+      "https://example.com/images/ps5_1.jpg",
+      "https://example.com/images/ps5_2.jpg"
+    ],
+    "features": [
+      "PS5 Console",
+      "Extra Controller",
+      "2 Games Included",
+      "All Cables",
+      "Original Box"
+    ],
+    "posted_date": "2025-09-22T11:20:00Z",
+    "is_available": true
+  },
+  {
+    "id": "prod_005",
+    "title": "Honda Activa 6G - 2023 Model",
+    "description": "Well-maintained Honda Activa 6G, 2023 model. Only 2500 KM driven. Single owner, all papers clear.",
+    "price": 65000,
+    "original_price": 75000,
+    "seller_name": "Sunita Devi",
+    "seller_contact": "9456789012",
+    "location": "Vaishali, Ghaziabad",
+    "url": "https://olx.in/ad/honda-activa-6g-2023-excellent-ID5678901",
+    "platform": "OLX",
+    "category": "Vehicles",
+    "condition": "Excellent",
+    "images": [
+      "https://example.com/images/activa_1.jpg",
+      "https://example.com/images/activa_2.jpg"
+    ],
+    "features": [
+      "2023 Model",
+      "2500 KM Only",
+      "Single Owner",
+      "All Papers Clear",
+      "Well Maintained"
+    ],
+    "posted_date": "2025-09-18T16:30:00Z",
+    "is_available": true
+  }
+]

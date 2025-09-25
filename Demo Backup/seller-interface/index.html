@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marketplace Chat - Seller Interface</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .seller-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
+            height: 600px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .seller-header {
+            background: linear-gradient(135deg, #2563eb, #1e40af);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .seller-header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .seller-header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .connection-status {
+            background: #f8fafc;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #dc2626;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.connected {
+            background: #10b981;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .status-text {
+            font-size: 14px;
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .session-setup {
+            padding: 30px 20px;
+            text-align: center;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .setup-form {
+            max-width: 300px;
+            margin: 0 auto;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 8px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #2563eb;
+        }
+
+        .join-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #2563eb, #1e40af);
+            color: white;
+            border: none;
+            padding: 14px 20px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .join-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .join-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .chat-container {
+            flex: 1;
+            display: none;
+            flex-direction: column;
+            height: 100%;
+            max-height: calc(100vh - 20px);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .chat-container.active {
+            display: flex;
+        }
+
+        .product-info {
+            background: #f8fafc;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            flex-shrink: 0;
+        }
+
+        .product-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 5px;
+        }
+
+        .product-price {
+            font-size: 18px;
+            font-weight: 700;
+            color: #059669;
+        }
+
+        .messages-area {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            background: #f9fafb;
+            min-height: 300px;
+            max-height: calc(100vh - 300px);
+            scroll-behavior: smooth;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: flex-start;
+            width: 100%;
+        }
+
+        .message.seller {
+            justify-content: flex-end;
+        }
+
+        .message-bubble {
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            font-size: 14px;
+            line-height: 1.5;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            white-space: pre-wrap;
+            box-sizing: border-box;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+        }
+
+        .message.buyer .message-bubble {
+            background: #e5e7eb;
+            color: #374151;
+            border-bottom-left-radius: 6px;
+            margin-right: auto;
+        }
+
+        .message.seller .message-bubble {
+            background: #2563eb;
+            color: white;
+            border-bottom-right-radius: 6px;
+            margin-left: auto;
+        }
+
+        .message-time {
+            font-size: 11px;
+            color: #9ca3af;
+            margin-top: 4px;
+            margin-left: 16px;
+        }
+
+        .message.seller .message-time {
+            margin-left: 0;
+            margin-right: 16px;
+            text-align: right;
+        }
+
+        .typing-indicator {
+            display: none;
+            padding: 12px 20px;
+            color: #64748b;
+            font-size: 13px;
+            font-style: italic;
+            background: #f9fafb;
+            flex-shrink: 0;
+        }
+
+        .typing-indicator.show {
+            display: block;
+        }
+
+        .input-area {
+            background: white;
+            padding: 20px;
+            border-top: 1px solid #e2e8f0;
+            flex-shrink: 0;
+            position: sticky;
+            bottom: 0;
+            z-index: 10;
+        }
+
+        .input-container {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+
+        .message-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 20px;
+            font-size: 14px;
+            resize: none;
+            min-height: 44px;
+            max-height: 100px;
+            transition: border-color 0.3s ease;
+        }
+
+        .message-input:focus {
+            outline: none;
+            border-color: #2563eb;
+        }
+
+        .send-btn {
+            background: #2563eb;
+            color: white;
+            border: none;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.3s ease;
+        }
+
+        .send-btn:hover {
+            background: #1e40af;
+        }
+
+        .send-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+
+        .error-message {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 10px 20px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        @media (max-width: 600px) {
+            .seller-container {
+                height: 100vh;
+                border-radius: 0;
+                max-width: none;
+            }
+        }
+
+        /* Additional fixes for chat visibility */
+        .message-content {
+            width: 100%;
+            display: block;
+        }
+        
+        .message-bubble * {
+            max-width: 100%;
+        }
+        
+        .messages-area::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .messages-area::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 3px;
+        }
+        
+        .messages-area::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        
+        .messages-area::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body>
+    <div class="seller-container">
+        <div class="seller-header">
+            <h1><i class="fas fa-store"></i> Seller Chat</h1>
+            <p>Chat with potential buyers about your products</p>
+        </div>
+
+        <div class="connection-status">
+            <div class="status-dot" id="status-dot"></div>
+            <span class="status-text" id="status-text">Disconnected</span>
+        </div>
+
+        <div class="error-message" id="error-message"></div>
+
+        <!-- Session Setup Screen -->
+        <div class="session-setup" id="session-setup">
+            <div class="setup-form">
+                <div class="form-group">
+                    <label for="session-id">Session ID</label>
+                    <input type="text" id="session-id" placeholder="Enter session ID to join chat">
+                </div>
+                <div class="form-group">
+                    <label for="seller-name">Your Name</label>
+                    <input type="text" id="seller-name" placeholder="Enter your name" value="Rajesh Kumar">
+                </div>
+                <button class="join-btn" id="join-btn" onclick="joinSession()">
+                    <i class="fas fa-sign-in-alt"></i> Join Chat Session
+                </button>
+            </div>
+        </div>
+
+        <!-- Chat Interface -->
+        <div class="chat-container" id="chat-container">
+            <div class="product-info" id="product-info">
+                <div class="product-title">Product will load here...</div>
+                <div class="product-price">Price: ₹-</div>
+            </div>
+
+            <div class="messages-area" id="messages-area"></div>
+
+            <div class="typing-indicator" id="typing-indicator">
+                <i class="fas fa-circle"></i> Buyer is typing...
+            </div>
+
+            <div class="input-area">
+                <div class="input-container">
+                    <textarea class="message-input" id="message-input" 
+                              placeholder="Type your message..." 
+                              rows="1"></textarea>
+                    <button class="send-btn" id="send-btn" onclick="sendMessage()">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class SellerInterface {
+            constructor() {
+                this.websocket = null;
+                this.sessionId = null;
+                this.sellerName = null;
+                this.isConnected = false;
+                this.setupEventListeners();
+            }
+
+            setupEventListeners() {
+                // Enter key to send message
+                document.getElementById('message-input').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.sendMessage();
+                    }
+                });
+
+                // Enter key to join session
+                document.getElementById('session-id').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        this.joinSession();
+                    }
+                });
+
+                // Auto-resize textarea
+                const textarea = document.getElementById('message-input');
+                textarea.addEventListener('input', () => {
+                    textarea.style.height = 'auto';
+                    textarea.style.height = Math.min(textarea.scrollHeight, 100) + 'px';
+                });
+            }
+
+            async joinSession() {
+                const sessionIdInput = document.getElementById('session-id');
+                const sellerNameInput = document.getElementById('seller-name');
+                const joinBtn = document.getElementById('join-btn');
+
+                const sessionId = sessionIdInput.value.trim();
+                const sellerName = sellerNameInput.value.trim();
+
+                if (!sessionId) {
+                    this.showError('Please enter a session ID');
+                    return;
+                }
+
+                if (!sellerName) {
+                    this.showError('Please enter your name');
+                    return;
+                }
+
+                this.sessionId = sessionId;
+                this.sellerName = sellerName;
+
+                joinBtn.disabled = true;
+                joinBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Joining...';
+
+                try {
+                    await this.connectWebSocket();
+                } catch (error) {
+                    this.showError('Failed to join session: ' + error.message);
+                    joinBtn.disabled = false;
+                    joinBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Join Chat Session';
+                }
+            }
+
+            async connectWebSocket() {
+                const wsUrl = `ws://localhost:8000/ws/seller/${this.sessionId}`;
+                
+                this.websocket = new WebSocket(wsUrl);
+
+                this.websocket.onopen = () => {
+                    console.log('Connected to session:', this.sessionId);
+                    this.updateConnectionStatus(true);
+                    this.showChatInterface();
+                };
+
+                this.websocket.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    this.handleMessage(data);
+                };
+
+                this.websocket.onclose = () => {
+                    console.log('WebSocket connection closed');
+                    this.updateConnectionStatus(false);
+                    this.showError('Connection lost. Please try again.');
+                };
+
+                this.websocket.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    this.showError('Connection failed. Please check the session ID.');
+                };
+            }
+
+            handleMessage(data) {
+                console.log('Received message:', data);
+
+                switch (data.type) {
+                    case 'connected':
+                        this.hideError();
+                        break;
+                    
+                    case 'message':
+                        if (data.sender === 'buyer') {
+                            this.addMessage(data.message.content, 'buyer');
+                        }
+                        break;
+                    
+                    case 'typing':
+                        if (data.sender === 'user' && data.is_typing) {
+                            this.showTypingIndicator();
+                        } else {
+                            this.hideTypingIndicator();
+                        }
+                        break;
+                    
+                    case 'session_ended':
+                        this.handleSessionEnd(data.result);
+                        break;
+                    
+                    case 'error':
+                        this.showError(data.message);
+                        break;
+                }
+            }
+
+            showChatInterface() {
+                document.getElementById('session-setup').style.display = 'none';
+                document.getElementById('chat-container').classList.add('active');
+                
+                // Load product info (simulate for now)
+                this.loadProductInfo();
+            }
+
+            loadProductInfo() {
+                // This would normally load from the API
+                document.querySelector('.product-title').textContent = 'iPhone 13 - 128GB Blue';
+                document.querySelector('.product-price').textContent = 'Price: ₹45,000';
+            }
+
+            sendMessage() {
+                const input = document.getElementById('message-input');
+                const message = input.value.trim();
+
+                if (!message || !this.websocket) {
+                    return;
+                }
+
+                // Send message via WebSocket
+                this.websocket.send(JSON.stringify({
+                    type: 'message',
+                    content: message
+                }));
+
+                // Add to UI
+                this.addMessage(message, 'seller');
+
+                // Clear input
+                input.value = '';
+                input.style.height = 'auto';
+            }
+
+            addMessage(content, sender) {
+                const messagesArea = document.getElementById('messages-area');
+                const now = new Date();
+                const timeString = now.toLocaleTimeString('en-US', { 
+                    hour: 'numeric', 
+                    minute: '2-digit',
+                    hour12: true 
+                });
+
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${sender}`;
+                
+                // Create message bubble with proper content handling
+                const messageBubble = document.createElement('div');
+                messageBubble.className = 'message-bubble';
+                messageBubble.textContent = content; // Using textContent for better text handling
+                
+                const messageTime = document.createElement('div');
+                messageTime.className = 'message-time';
+                messageTime.textContent = timeString;
+                
+                messageDiv.appendChild(messageBubble);
+                messageDiv.appendChild(messageTime);
+
+                messagesArea.appendChild(messageDiv);
+                
+                // Enhanced scrolling to ensure it always works
+                this.scrollToBottom();
+            }
+            
+            scrollToBottom() {
+                const messagesArea = document.getElementById('messages-area');
+                // Immediate scroll
+                messagesArea.scrollTop = messagesArea.scrollHeight;
+                
+                // Delayed scroll to handle any layout changes
+                setTimeout(() => {
+                    messagesArea.scrollTop = messagesArea.scrollHeight;
+                }, 10);
+                
+                // Additional scroll after DOM update
+                requestAnimationFrame(() => {
+                    messagesArea.scrollTop = messagesArea.scrollHeight;
+                });
+            }
+
+            showTypingIndicator() {
+                document.getElementById('typing-indicator').classList.add('show');
+            }
+
+            hideTypingIndicator() {
+                document.getElementById('typing-indicator').classList.remove('show');
+            }
+
+            updateConnectionStatus(connected) {
+                const statusDot = document.getElementById('status-dot');
+                const statusText = document.getElementById('status-text');
+
+                this.isConnected = connected;
+
+                if (connected) {
+                    statusDot.classList.add('connected');
+                    statusText.textContent = `Connected to Session: ${this.sessionId}`;
+                } else {
+                    statusDot.classList.remove('connected');
+                    statusText.textContent = 'Disconnected';
+                }
+            }
+
+            showError(message) {
+                const errorDiv = document.getElementById('error-message');
+                errorDiv.textContent = message;
+                errorDiv.classList.add('show');
+            }
+
+            hideError() {
+                const errorDiv = document.getElementById('error-message');
+                errorDiv.classList.remove('show');
+            }
+
+            handleSessionEnd(result) {
+                this.addMessage(`Chat session ended. ${result.outcome === 'success' ? 'Deal completed!' : 'No deal reached.'}`, 'system');
+                
+                // Disable input
+                document.getElementById('message-input').disabled = true;
+                document.getElementById('send-btn').disabled = true;
+            }
+        }
+
+        // Initialize the seller interface
+        const seller = new SellerInterface();
+
+        // Global functions for onclick handlers
+        function joinSession() {
+            seller.joinSession();
+        }
+
+        function sendMessage() {
+            seller.sendMessage();
+        }
+
+        // Auto-focus session ID input on load
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('session-id').focus();
+        });
+    </script>
+</body>
+</html>
