@@ -1262,10 +1262,17 @@ async def get_session_details(session_id: str):
             session_data = session_manager.active_sessions[session_id]
             session = session_data['session']
             
+            # Ensure proper serialization of session and user_params
+            session_dict = session.dict()
+            
+            # Debug logging
+            logger.info(f"Session dict for {session_id}: {session_dict}")
+            logger.info(f"User params: {session_dict.get('user_params')}")
+            
             return {
                 "success": True,
-                "session": session.dict(),
-                "product": session_data['product'].dict(),
+                "session": session_dict,
+                "product": session_data['product'].dict() if hasattr(session_data['product'], 'dict') else session_data['product'],
                 "market_analysis": session_data.get('market_analysis', {}),
                 "strategy": session_data.get('strategy', {}),
                 "performance_metrics": session_data.get('performance_metrics', {}),
@@ -1278,11 +1285,12 @@ async def get_session_details(session_id: str):
                 raise HTTPException(status_code=404, detail="Session not found")
             return {
                 "success": True,
-                "session": session, 
+                "session": session.dict() if hasattr(session, 'dict') else session, 
                 "status": "completed"
             }
             
     except Exception as e:
+        logger.error(f"Error getting session details: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

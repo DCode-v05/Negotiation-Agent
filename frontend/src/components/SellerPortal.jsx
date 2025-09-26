@@ -43,18 +43,28 @@ const SellerPortal = ({ user, onLogout }) => {
       const data = await response.json()
 
       if (data.success) {
+        // Debug: Log the entire response
+        console.log('Session API response:', data)
+        console.log('User params:', data.session?.user_params)
+        
         // Connect to WebSocket
         const wsUrl = `ws://localhost:8000/ws/seller/${activeSessionId}`
         wsRef.current = new WebSocket(wsUrl)
 
         wsRef.current.onopen = () => {
           setIsConnected(true)
-          setSessionDetails({
+          const sessionData = {
             session: data.session,
             product: data.product,
             market_analysis: data.market_analysis,
             strategy: data.strategy
-          })
+          }
+          setSessionDetails(sessionData)
+          
+          // Debug logging
+          console.log('Session Details Set:', sessionData)
+          console.log('User Params:', data.session?.user_params)
+          
           toast.success(`Connected to session ${activeSessionId}`)
         }
 
@@ -278,6 +288,8 @@ const SellerPortal = ({ user, onLogout }) => {
                 </div>
               </div>
 
+
+
               {/* Product Details */}
               {sessionDetails?.product && (
                 <div className="p-4 border-b border-primary-700/30">
@@ -288,14 +300,17 @@ const SellerPortal = ({ user, onLogout }) => {
                   <div className="space-y-3">
                     <div>
                       <p className="text-sm text-gray-400">Product Name</p>
-                      <p className="text-white font-medium text-sm truncate" title={sessionDetails.product.title}>
-                        {sessionDetails.product.title}
+                      <p className="text-white font-medium text-sm truncate" title={sessionDetails.product.title || 'No title available'}>
+                        {sessionDetails.product.title || 'No title available'}
                       </p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-400">Listed Price</p>
                       <p className="text-green-400 font-bold">
-                        ₹{sessionDetails.product.price?.toLocaleString()}
+                        {sessionDetails.product.price ? 
+                          `₹${sessionDetails.product.price.toLocaleString()}` : 
+                          'Price not available'
+                        }
                       </p>
                     </div>
                     <div>
@@ -306,9 +321,15 @@ const SellerPortal = ({ user, onLogout }) => {
                       <p className="text-sm text-gray-400">Location</p>
                       <p className="text-white text-sm">{sessionDetails.product.location || 'Not specified'}</p>
                     </div>
+                    <div>
+                      <p className="text-sm text-gray-400">Platform</p>
+                      <p className="text-white text-sm capitalize">{sessionDetails.product.platform || 'Not specified'}</p>
+                    </div>
                   </div>
                 </div>
               )}
+
+
 
               {/* Buyer Information */}
               {sessionDetails?.session && (
@@ -321,13 +342,21 @@ const SellerPortal = ({ user, onLogout }) => {
                     <div>
                       <p className="text-sm text-gray-400">Target Price</p>
                       <p className="text-primary-400 font-bold">
-                        ₹{sessionDetails.session.user_params?.target_price?.toLocaleString()}
+                        {(() => {
+                          const userParams = sessionDetails.session.user_params;
+                          const targetPrice = userParams?.target_price;
+                          return targetPrice ? `₹${targetPrice.toLocaleString()}` : 'Not specified';
+                        })()}
                       </p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-400">Maximum Budget</p>
                       <p className="text-accent-400 font-bold">
-                        ₹{sessionDetails.session.user_params?.max_budget?.toLocaleString()}
+                        {(() => {
+                          const userParams = sessionDetails.session.user_params;
+                          const maxBudget = userParams?.max_budget;
+                          return maxBudget ? `₹${maxBudget.toLocaleString()}` : 'Not specified';
+                        })()}
                       </p>
                     </div>
                     <div>

@@ -105,6 +105,9 @@ class AdvancedSessionManager:
                 product, params, market_analysis
             )
             
+            # Step 5.5: Update params with correct product_id
+            params.product_id = product.id
+            
             # Step 6: Create negotiation session
             session = NegotiationSession(
                 id=session_id,
