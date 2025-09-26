@@ -256,7 +256,7 @@ const SellerPortal = ({ user, onLogout }) => {
         </div>
       </div>
 
-      {/* Main Content Area */}
+      {/* Chat Area */}
       <div className="flex-1 flex">
         {isConnected ? (
           <>
@@ -389,8 +389,6 @@ const SellerPortal = ({ user, onLogout }) => {
               )}
             </div>
 
-            {/* Chat Section */}
-            <div className="flex-1 flex flex-col">
               {/* Chat Messages */}
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 <AnimatePresence>

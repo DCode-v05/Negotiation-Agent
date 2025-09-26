@@ -1263,6 +1263,7 @@ async def get_session_details(session_id: str):
             session = session_data['session']
             
             return {
+                "success": True,
                 "session": session.dict(),
                 "product": session_data['product'].dict(),
                 "market_analysis": session_data.get('market_analysis', {}),
@@ -1275,7 +1276,11 @@ async def get_session_details(session_id: str):
             session = await db.get_session(session_id)
             if not session:
                 raise HTTPException(status_code=404, detail="Session not found")
-            return {"session": session, "status": "completed"}
+            return {
+                "success": True,
+                "session": session, 
+                "status": "completed"
+            }
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -1,3 +1,42 @@
+"""
+ENHANCED KEYWORD-BASED STATIC RESPONSE SYSTEM
+
+This module implements a sophisticated keyword-based static response system for negotiations.
+When Gemini API is unavailable or fails, the system uses intelligent keyword detection to 
+generate dynamic, context-aware responses.
+
+KEYWORD CATEGORIES AND RESPONSES:
+1. PRICE_LOW_KEYWORDS: ['low', 'too low', 'very low', 'not enough', 'insufficient', 'can\'t accept', 'won\'t work']
+   - Responses: Market-based justifications, slight price increases, persistence
+
+2. AGREEABLE_KEYWORDS: ['ok', 'okay', 'fine', 'alright', 'sounds good', 'agreed', 'deal', 'accept', 'yes'] 
+   - Responses: Deal closure, logistics coordination, contact exchange
+
+3. NEGOTIATION_KEYWORDS: ['counter', 'negotiate', 'how about', 'what about', 'consider', 'think about']
+   - Responses: Open to discussion while maintaining target price
+
+4. EXPENSIVE_KEYWORDS: ['expensive', 'high', 'too much', 'costly', 'pricey', 'beyond budget']
+   - Responses: Value justification, market comparisons, finding middle ground
+
+5. URGENCY_KEYWORDS: ['urgent', 'quick', 'asap', 'immediately', 'today', 'now', 'fast']
+   - Responses: Quick decision offers, immediate purchase readiness
+
+6. GREETING_KEYWORDS: ['hi', 'hello', 'hey', 'good morning', 'good afternoon']
+   - Responses: Professional introductions with immediate price offers
+
+NEGOTIATION APPROACHES:
+- ASSERTIVE: Direct, confident, market-research backed responses
+- DIPLOMATIC: Balanced, collaborative, solution-focused responses  
+- CONSIDERATE: Polite, budget-conscious, appreciation-focused responses
+
+Each response is dynamically selected based on:
+- Seller's keywords
+- Negotiation approach preference
+- Target price and budget constraints
+- Product information
+- Conversation context
+"""
+
 import google.generativeai as genai
 import os
 import random
@@ -25,7 +64,7 @@ class GeminiOnlyService:
         """Setup Gemini AI client"""
         try:
             genai.configure(api_key=self.api_key)
-            self.model = genai.GenerativeModel('gemini-1.5-flash')
+            self.model = genai.GenerativeModel('gemini-pro')
             logger.info("INFO: Gemini AI service initialized successfully")
         except Exception as e:
             logger.error(f"ERROR: Failed to initialize Gemini AI: {e}")
@@ -326,7 +365,7 @@ Generate your strategic response as the buyer:
         chat_history: List[ChatMessage],
         product: Product
     ) -> str:
-        """Fallback responses when AI is not available"""
+        """Enhanced fallback responses using keyword-based static responses"""
         
         # Convert string to enum if needed
         if isinstance(approach, str):
@@ -347,59 +386,138 @@ Generate your strategic response as the buyer:
             else:  # CONSIDERATE
                 return f"Hi {product.seller_name}! I'm really interested in your listing. My budget is a bit tight at ₹{target_price:,}. Would this work for you?"
         
-        # Response to seller
-        last_message = seller_messages[-1].content.lower()
-        message_count = len(seller_messages)
+        # Use enhanced keyword-based response system
+        last_seller_message = seller_messages[-1].content
+        return self._get_keyword_based_response_simple(last_seller_message, approach, target_price, product)
+    
+    def _get_keyword_based_response_simple(
+        self, 
+        seller_message: str, 
+        approach: NegotiationApproach, 
+        target_price: int, 
+        product: Product
+    ) -> str:
+        """Simplified keyword-based response system for fallback responses"""
         
-        # Keywords for different responses
-        if "hi" in last_message or "hello" in last_message or "available" in last_message:
-            # Greeting/availability check
-            if approach == NegotiationApproach.ASSERTIVE:
-                return f"Hello {product.seller_name}! Yes, I'm very interested. I can offer ₹{target_price:,} for immediate purchase. When can we meet?"
-            elif approach == NegotiationApproach.DIPLOMATIC:
-                return f"Hi there {product.seller_name}! Yes, I'm interested in your listing. The item looks great. Would ₹{target_price:,} work for you?"
-            else:  # CONSIDERATE
-                return f"Hello {product.seller_name}! Yes, I'm interested. I'm hoping to stay within ₹{target_price:,} if possible. Could we work something out?"
+        message_lower = seller_message.lower()
         
-        elif "price" in last_message or "cost" in last_message or "amount" in last_message:
-            # Price discussion
-            if approach == NegotiationApproach.ASSERTIVE:
-                return f"Based on market research, ₹{target_price:,} is what I can offer. It's competitive and fair."
-            elif approach == NegotiationApproach.DIPLOMATIC:
-                return f"I've been looking at similar items, and ₹{target_price:,} seems reasonable. What do you think?"
-            else:  # CONSIDERATE
-                return f"I understand the value, but my budget is limited to ₹{target_price:,}. Is there any flexibility?"
+        # Define keyword-based response mappings (simplified version)
+        keyword_responses = {
+            # Price is too low keywords
+            'price_low_keywords': ['low', 'too low', 'very low', 'not enough', 'insufficient', 'can\'t accept', 'won\'t work', 'no', 'cannot', 'firm', 'minimum'],
+            'price_low_responses': {
+                NegotiationApproach.ASSERTIVE: [
+                    f"I understand, but ₹{target_price:,} is based on market research. Let me stretch to ₹{int(target_price * 1.1):,} maximum.",
+                    f"Based on similar listings, ₹{target_price:,} is competitive. I can go up to ₹{int(target_price * 1.1):,} if needed.",
+                    f"Market data supports ₹{target_price:,}. My absolute maximum would be ₹{int(target_price * 1.1):,}."
+                ],
+                NegotiationApproach.DIPLOMATIC: [
+                    f"I appreciate your position. Could we perhaps meet at ₹{int(target_price * 1.1):,}? That would work for both of us.",
+                    f"Let's find middle ground. Would ₹{int(target_price * 1.1):,} be more acceptable?",
+                    f"I understand your concern. Could ₹{int(target_price * 1.1):,} bridge the gap between us?"
+                ],
+                NegotiationApproach.CONSIDERATE: [
+                    f"I really want this item. Could you please consider ₹{int(target_price * 1.1):,}? It would mean a lot to me.",
+                    f"I understand it might seem low. ₹{int(target_price * 1.1):,} is really stretching my budget.",
+                    f"Please help me out. ₹{int(target_price * 1.1):,} would be perfect if you could consider it."
+                ]
+            },
+            
+            # Seller is okay/agreeable keywords
+            'agreeable_keywords': ['ok', 'okay', 'fine', 'alright', 'sounds good', 'agreed', 'deal', 'accept', 'yes'],
+            'agreeable_responses': {
+                NegotiationApproach.ASSERTIVE: [
+                    "Excellent! Let's finalize this deal. When can we arrange pickup?",
+                    "Perfect! I'm ready to proceed. How should we handle payment?",
+                    "Great decision! Let's exchange contact details and complete this transaction."
+                ],
+                NegotiationApproach.DIPLOMATIC: [
+                    "Wonderful! I'm glad we could reach an agreement. How would you like to proceed?",
+                    "That's fantastic! Thank you for being flexible. What's the next step?",
+                    "Excellent! I appreciate your cooperation. Shall we arrange the pickup details?"
+                ],
+                NegotiationApproach.CONSIDERATE: [
+                    "Thank you so much! This really means a lot to me. How can we arrange the pickup?",
+                    "I'm so grateful we could work this out! When would be convenient for you?",
+                    "Thank you for understanding! I really appreciate your flexibility."
+                ]
+            },
+            
+            # Greeting keywords
+            'greeting_keywords': ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'available'],
+            'greeting_responses': {
+                NegotiationApproach.ASSERTIVE: [
+                    f"Hello {product.seller_name}! Yes, I'm very interested. I can offer ₹{target_price:,} for immediate purchase.",
+                    f"Hi there! I'm interested in your {product.title}. ₹{target_price:,} would work for me."
+                ],
+                NegotiationApproach.DIPLOMATIC: [
+                    f"Hello {product.seller_name}! Yes, I'm interested in your listing. Would ₹{target_price:,} work for you?",
+                    f"Hi! Your {product.title} looks great. Could we discuss ₹{target_price:,}?"
+                ],
+                NegotiationApproach.CONSIDERATE: [
+                    f"Hello {product.seller_name}! Yes, I'm interested. I hope ₹{target_price:,} might work?",
+                    f"Hi! I really love your {product.title}. Could ₹{target_price:,} be possible?"
+                ]
+            },
+            
+            # Price discussion keywords
+            'price_keywords': ['price', 'cost', 'amount', 'offer', 'budget'],
+            'price_responses': {
+                NegotiationApproach.ASSERTIVE: [
+                    f"Based on market research, ₹{target_price:,} is what I can offer. It's competitive and fair.",
+                    f"I've analyzed similar items - ₹{target_price:,} is a solid market price."
+                ],
+                NegotiationApproach.DIPLOMATIC: [
+                    f"I've been looking at similar items, and ₹{target_price:,} seems reasonable. What do you think?",
+                    f"Based on my research, ₹{target_price:,} appears fair for both of us."
+                ],
+                NegotiationApproach.CONSIDERATE: [
+                    f"I understand the value, but my budget is limited to ₹{target_price:,}. Is there any flexibility?",
+                    f"₹{target_price:,} is really what I can afford. I hope that might work?"
+                ]
+            },
+            
+            # Logistics keywords
+            'logistics_keywords': ['meet', 'pickup', 'delivery', 'when', 'where', 'payment'],
+            'logistics_responses': {
+                NegotiationApproach.ASSERTIVE: [
+                    "Perfect! I'm flexible with timing. I can arrange pickup today or tomorrow. Cash or online transfer?",
+                    "Excellent! I can come whenever convenient for you. What payment method do you prefer?"
+                ],
+                NegotiationApproach.DIPLOMATIC: [
+                    "Great! I'm available most times. When would work best for you? I can do cash or digital payment.",
+                    "Wonderful! I'm flexible with both timing and payment method. What works for you?"
+                ],
+                NegotiationApproach.CONSIDERATE: [
+                    "Thank you! I can work around your schedule. Whatever time and payment method you prefer.",
+                    "I appreciate it! I'm very flexible with pickup time and can pay however you'd like."
+                ]
+            }
+        }
         
-        elif "no" in last_message or "cannot" in last_message or "firm" in last_message or "minimum" in last_message:
-            # Seller rejected - increase offer slightly
-            counter_offer = min(int(target_price * 1.15), target_price + 5000)
-            if approach == NegotiationApproach.ASSERTIVE:
-                return f"I understand. Let me stretch my budget to ₹{counter_offer:,}. This is really my maximum."
-            elif approach == NegotiationApproach.DIPLOMATIC:
-                return f"I appreciate your position. Could we perhaps meet at ₹{counter_offer:,}? That would really help both of us."
-            else:  # CONSIDERATE
-                return f"I really want this item. Could you please consider ₹{counter_offer:,}? It would mean a lot to me."
+        # Check for keyword matches and return appropriate response
+        for category in ['price_low', 'agreeable', 'greeting', 'price', 'logistics']:
+            keywords = keyword_responses[f'{category}_keywords']
+            if any(keyword in message_lower for keyword in keywords):
+                responses = keyword_responses[f'{category}_responses'][approach]
+                return random.choice(responses)
         
-        elif "yes" in last_message or "okay" in last_message or "accept" in last_message or "deal" in last_message:
-            # Seller accepted
-            return "Excellent! That works perfectly for me. When would be convenient for pickup? I can arrange payment immediately."
-        
-        elif "meet" in last_message or "pickup" in last_message or "delivery" in last_message:
-            # Logistics discussion
-            return "Perfect! I'm flexible with timing. I can come today or tomorrow, whatever works best for you. Should I bring cash or is online transfer preferred?"
-        
-        elif "condition" in last_message or "working" in last_message or "problem" in last_message:
-            # Product condition inquiry
-            return "Thank you for the details. As long as everything is as described, I'm happy to proceed with ₹{target_price:,}. Can we finalize this?"
-        
-        else:
-            # General response
-            if approach == NegotiationApproach.ASSERTIVE:
-                return f"Let me be direct - I can offer ₹{target_price:,} and arrange pickup today. This is a fair market price."
-            elif approach == NegotiationApproach.DIPLOMATIC:
-                return f"I've researched similar listings and ₹{target_price:,} seems to be the going rate. Would you consider this offer?"
-            else:  # CONSIDERATE
-                return f"I'm really hoping we can work something out at ₹{target_price:,}. This would really help with my budget constraints."
+        # Default fallback response when no keywords match
+        default_responses = {
+            NegotiationApproach.ASSERTIVE: [
+                f"Based on my research, ₹{target_price:,} is a fair market price for this item.",
+                f"I'm prepared to offer ₹{target_price:,} which aligns with current market values."
+            ],
+            NegotiationApproach.DIPLOMATIC: [
+                f"I'm hoping we can find a price that works for both of us, around ₹{target_price:,}.",
+                f"Could we explore ₹{target_price:,} as a fair solution?"
+            ],
+            NegotiationApproach.CONSIDERATE: [
+                f"I really hope we can work something out around ₹{target_price:,}.",
+                f"₹{target_price:,} would really fit my budget perfectly. I hope that might work?"
+            ]
+        }
+        return random.choice(default_responses[approach])
     
     def _get_enhanced_fallback_response(
         self, 
@@ -409,7 +527,7 @@ Generate your strategic response as the buyer:
         decision: Dict[str, Any],
         product: Product
     ) -> str:
-        """Enhanced fallback responses using advanced context"""
+        """Enhanced fallback responses using keyword-based static responses"""
         
         session = session_data['session']
         approach = session.user_params.approach
@@ -461,22 +579,170 @@ Generate your strategic response as the buyer:
                 else:  # CONSIDERATE
                     return f"I really want this item. Could you please consider ₹{offer:,}? It would mean a lot to me."
         
-        # Default exploratory response
+        # KEYWORD-BASED STATIC RESPONSES - Dynamic responses based on seller's keywords
+        return self._get_keyword_based_response(seller_message, session_data, product)
+    
+    def _get_keyword_based_response(
+        self, 
+        seller_message: str, 
+        session_data: Dict[str, Any], 
+        product: Product
+    ) -> str:
+        """Generate dynamic responses based on keywords in seller's message"""
+        
+        session = session_data['session']
+        approach = session.user_params.approach
+        target_price = session.user_params.target_price
+        max_budget = session.user_params.max_budget
         message_lower = seller_message.lower()
         
-        if "hi" in message_lower or "hello" in message_lower:
-            return f"Hello {product.seller_name}! I'm very interested in your {product.title}. Is ₹{target_price:,} something we could work with?"
+        # Define keyword-based response mappings
+        keyword_responses = {
+            # Price is too low keywords
+            'price_low_keywords': ['low', 'too low', 'very low', 'not enough', 'insufficient', 'can\'t accept', 'won\'t work'],
+            'price_low_responses': {
+                NegotiationApproach.ASSERTIVE: [
+                    f"I understand, but ₹{target_price:,} is based on market research. Similar items are selling at this price range.",
+                    f"Let me be clear - ₹{target_price:,} is a fair market price. I've seen comparable items at this rate.",
+                    f"I've done my homework on pricing. ₹{target_price:,} is what the market supports for this item."
+                ],
+                NegotiationApproach.DIPLOMATIC: [
+                    f"I appreciate your perspective. Could we perhaps meet somewhere around ₹{target_price:,}? I believe it's fair for both parties.",
+                    f"I understand your position. Based on my research, ₹{target_price:,} seems reasonable. What are your thoughts?",
+                    f"Let's find a middle ground. I think ₹{target_price:,} could work well for both of us."
+                ],
+                NegotiationApproach.CONSIDERATE: [
+                    f"I really appreciate you considering my offer. ₹{target_price:,} would really help with my budget constraints.",
+                    f"I hope we can work something out around ₹{target_price:,}. This would mean a lot to me.",
+                    f"I understand it might seem low, but ₹{target_price:,} is what I can comfortably afford right now."
+                ]
+            },
+            
+            # Seller is okay/agreeable keywords
+            'agreeable_keywords': ['ok', 'okay', 'fine', 'alright', 'sounds good', 'agreed', 'deal', 'accept', 'yes'],
+            'agreeable_responses': {
+                NegotiationApproach.ASSERTIVE: [
+                    "Excellent! Let's finalize this deal. When can we arrange pickup?",
+                    "Perfect! I'm ready to proceed. How should we handle payment?",
+                    "Great decision! Let's exchange contact details and complete this transaction."
+                ],
+                NegotiationApproach.DIPLOMATIC: [
+                    "Wonderful! I'm glad we could reach an agreement. How would you like to proceed?",
+                    "That's fantastic! Thank you for being flexible. What's the next step?",
+                    "Excellent! I appreciate your cooperation. Shall we arrange the pickup details?"
+                ],
+                NegotiationApproach.CONSIDERATE: [
+                    "Thank you so much! This really means a lot to me. How can we arrange the pickup?",
+                    "I'm so grateful we could work this out! When would be convenient for you?",
+                    "Thank you for understanding! I really appreciate your flexibility."
+                ]
+            },
+            
+            # Negotiation/counter-offer keywords
+            'negotiation_keywords': ['counter', 'negotiate', 'how about', 'what about', 'consider', 'think about'],
+            'negotiation_responses': {
+                NegotiationApproach.ASSERTIVE: [
+                    f"I'm open to discussion, but ₹{target_price:,} is really where I need to be for this to work.",
+                    f"Let's talk numbers. My research shows ₹{target_price:,} is fair market value.",
+                    f"I can negotiate, but ₹{target_price:,} is based on solid market analysis."
+                ],
+                NegotiationApproach.DIPLOMATIC: [
+                    f"I'm definitely open to finding a solution that works for both of us around ₹{target_price:,}.",
+                    f"Absolutely, let's see if we can find common ground near ₹{target_price:,}.",
+                    f"I appreciate your willingness to negotiate. Could ₹{target_price:,} work for you?"
+                ],
+                NegotiationApproach.CONSIDERATE: [
+                    f"I'd really appreciate any flexibility you could show. ₹{target_price:,} would be perfect for me.",
+                    f"I hope we can find something that works. ₹{target_price:,} would really help my situation.",
+                    f"Thank you for being open to negotiation. ₹{target_price:,} would be wonderful."
+                ]
+            },
+            
+            # High price/expensive keywords
+            'expensive_keywords': ['expensive', 'high', 'too much', 'costly', 'pricey', 'beyond budget'],
+            'expensive_responses': {
+                NegotiationApproach.ASSERTIVE: [
+                    f"I understand it might seem high, but I've researched the market and ₹{target_price:,} is competitive.",
+                    f"Let me show you the value - at ₹{target_price:,}, this is actually below market average.",
+                    f"I've compared prices extensively. ₹{target_price:,} is fair considering the market rates."
+                ],
+                NegotiationApproach.DIPLOMATIC: [
+                    f"I see your concern about the price. Could we explore ₹{target_price:,} as a middle ground?",
+                    f"Price is important to me too. I think ₹{target_price:,} offers good value for both of us.",
+                    f"Let's find a balance. Would ₹{target_price:,} be more reasonable?"
+                ],
+                NegotiationApproach.CONSIDERATE: [
+                    f"I understand budget concerns completely. ₹{target_price:,} is really stretching my budget too.",
+                    f"I share your concern about price. ₹{target_price:,} would really help me stay within budget.",
+                    f"I feel the same way about high prices. ₹{target_price:,} would be perfect for me."
+                ]
+            },
+            
+            # Urgent/quick sale keywords
+            'urgency_keywords': ['urgent', 'quick', 'asap', 'immediately', 'today', 'now', 'fast'],
+            'urgency_responses': {
+                NegotiationApproach.ASSERTIVE: [
+                    f"Perfect! I can make a quick decision at ₹{target_price:,}. Let's close this deal today.",
+                    f"Excellent timing! I'm ready to purchase immediately at ₹{target_price:,}.",
+                    f"I appreciate the urgency. ₹{target_price:,} and we can complete this transaction right now."
+                ],
+                NegotiationApproach.DIPLOMATIC: [
+                    f"I understand you need a quick sale. Could ₹{target_price:,} work for an immediate purchase?",
+                    f"If timing is important, I'm ready to proceed quickly at ₹{target_price:,}.",
+                    f"I can help with your timeline. Would ₹{target_price:,} work for a same-day deal?"
+                ],
+                NegotiationApproach.CONSIDERATE: [
+                    f"I'd love to help with your urgent sale! ₹{target_price:,} would let me decide immediately.",
+                    f"I understand you need this sold quickly. ₹{target_price:,} would allow me to buy today.",
+                    f"I can be your quick buyer at ₹{target_price:,} if that helps your timeline."
+                ]
+            }
+        }
         
-        elif "price" in message_lower or "offer" in message_lower:
-            market_analysis = session_data.get('market_analysis', {})
-            if market_analysis.get('average_price'):
-                avg_price = market_analysis['average_price']
-                return f"I've researched similar items averaging ₹{avg_price:,}. Could we settle at ₹{target_price:,}?"
-            else:
-                return f"Based on my budget and research, ₹{target_price:,} would work best for me. Is there flexibility here?"
+        # Check for keyword matches and return appropriate response
+        for category in ['price_low', 'agreeable', 'negotiation', 'expensive', 'urgency']:
+            keywords = keyword_responses[f'{category}_keywords']
+            if any(keyword in message_lower for keyword in keywords):
+                responses = keyword_responses[f'{category}_responses'][approach]
+                return random.choice(responses)
         
-        else:
-            return "I'm definitely interested. Let's see if we can find a price that works for both of us."
+        # Default greeting and general responses
+        if any(greeting in message_lower for greeting in ['hi', 'hello', 'hey', 'good morning', 'good afternoon']):
+            greeting_responses = {
+                NegotiationApproach.ASSERTIVE: [
+                    f"Hello! I'm interested in your {product.title}. I can offer ₹{target_price:,} based on current market rates.",
+                    f"Hi there! I've researched similar items and ₹{target_price:,} seems like a fair price for your {product.title}."
+                ],
+                NegotiationApproach.DIPLOMATIC: [
+                    f"Hello {product.seller_name}! I'm very interested in your {product.title}. Could we discuss ₹{target_price:,}?",
+                    f"Hi! Your {product.title} caught my attention. Would ₹{target_price:,} be something we could work with?"
+                ],
+                NegotiationApproach.CONSIDERATE: [
+                    f"Hello! I really love your {product.title}. I hope ₹{target_price:,} might work for both of us.",
+                    f"Hi {product.seller_name}! Your {product.title} is exactly what I'm looking for. Could ₹{target_price:,} work?"
+                ]
+            }
+            return random.choice(greeting_responses[approach])
+        
+        # Default fallback response when no keywords match
+        default_responses = {
+            NegotiationApproach.ASSERTIVE: [
+                f"Based on my research, ₹{target_price:,} is a fair market price for this item.",
+                f"I'm prepared to offer ₹{target_price:,} which aligns with current market values.",
+                f"My analysis shows ₹{target_price:,} is competitive for this type of item."
+            ],
+            NegotiationApproach.DIPLOMATIC: [
+                f"I'm interested in finding a price that works for both of us, around ₹{target_price:,}.",
+                f"Could we explore ₹{target_price:,} as a fair middle ground?",
+                f"I'm hoping we can reach an agreement near ₹{target_price:,}."
+            ],
+            NegotiationApproach.CONSIDERATE: [
+                f"I really hope we can work something out around ₹{target_price:,}.",
+                f"₹{target_price:,} would really fit my budget perfectly. I hope that might work?",
+                f"I'm really interested and ₹{target_price:,} would be ideal for me."
+            ]
+        }
+        return random.choice(default_responses[approach])
 
 
 # Utility function to test Gemini API connection
